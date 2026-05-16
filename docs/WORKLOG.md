@@ -8,6 +8,23 @@ Convenzioni:
 
 ---
 
+## 2026-05-16 — Verifica manuale end-to-end Parts 2-4 (container Docker)
+
+**Eseguita su Docker Desktop / Windows 11. Risultato: tutto ok.**
+
+Step verificati:
+- `scripts/start.ps1` builda l'immagine multi-stage e attende `healthy` con successo
+- `http://localhost:8000/` → auth-gate → redirect a `/login`
+- Login con `user`/`password` → board Kanban con 5 colonne servita correttamente (static export di Next.js + font + CSS dal container)
+- Drag/drop card tra colonne, add card, rimozione card, rename colonna: tutto funzionante
+- Logout dall'header → torno a `/login`
+- Login con password errata → banner `role="alert"` "Invalid username or password.", resta su `/login`
+- `scripts/stop.ps1` ferma e rimuove il container
+
+**Nota:** persistenza del board non ancora attiva (arriva in Part 6/7). Reload pagina = stato iniziale demo.
+
+---
+
 ## 2026-05-16 — Part 4: Login finto
 
 **Commit:** `e5a81eb`

@@ -88,7 +88,7 @@ Infrastruttura: container Docker con volume persistente, backend FastAPI minimo,
 ### Test
 - [x] `backend/tests/test_health.py`: `TestClient` → `GET /api/health` ritorna 200 + `{"status": "ok"}`
 - [x] `ruff check backend/` non rileva problemi
-- [ ] Test manuale: `scripts/start.*` → attendere "healthy" → `http://localhost:8000/` mostra hello world + risultato di `/api/health` (in attesa: Docker Desktop non in esecuzione sull'host)
+- [x] Test manuale: `scripts/start.*` → attendere "healthy" → `http://localhost:8000/` raggiungibile (test eseguito 2026-05-16, superato dal contenuto di Part 3: la home ora serve il Kanban invece del placeholder hello world)
 
 ### Criteri di successo
 - `docker build` completa senza errori
@@ -113,7 +113,7 @@ Build statico del frontend Next.js esistente, servito da FastAPI alla root `/`. 
   - Stage 1 `frontend-build`: `node:20-slim`, `npm ci` in `frontend/`, `npm run build` → output in `frontend/out/`
   - Stage 2 `backend`: come Part 2, più `COPY --from=frontend-build /app/frontend/out/ ./static/` dentro `WORKDIR /app/backend` (previo `rm -rf static && mkdir static` per scartare il placeholder)
 - [x] Sostituire il placeholder `backend/static/index.html` con i file generati dal build: il placeholder resta nel source tree (utile per dev mode standalone del backend) ma viene cancellato e rimpiazzato dal `COPY` nel Dockerfile
-- [ ] Verificare che le risorse statiche (`_next/static/...`, font, CSS) siano servite correttamente (test manuale via container, in attesa di Docker Desktop)
+- [x] Verificare che le risorse statiche (`_next/static/...`, font, CSS) siano servite correttamente (test manuale 2026-05-16: drag/drop, add card, rename column, rimozione card ok)
 - [x] Mantenere `/api/health` raggiungibile (FastAPI matcha le route specifiche prima del mount `/`)
 
 ### Test
