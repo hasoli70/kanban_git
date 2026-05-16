@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PM Backend</title>
+    <style>
+      :root {
+        --navy-dark: #032147;
+        --primary-blue: #209dd7;
+        --gray-text: #888888;
+      }
+      body {
+        font-family: system-ui, sans-serif;
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        background: #f7f8fb;
+        color: var(--navy-dark);
+      }
+      main {
+        text-align: center;
+      }
+      h1 {
+        margin: 0 0 0.5rem;
+        color: var(--navy-dark);
+      }
+      p {
+        margin: 0;
+        color: var(--gray-text);
+      }
+      code {
+        color: var(--primary-blue);
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Hello from PM Backend</h1>
+      <p>Health: <code id="health">checking...</code></p>
+    </main>
+    <script>
+      fetch("/api/health")
+        .then((r) => r.json())
+        .then((j) => {
+          document.getElementById("health").textContent = JSON.stringify(j);
+        })
+        .catch((e) => {
+          document.getElementById("health").textContent = "error: " + e;
+        });
+    </script>
+  </body>
+</html>

@@ -1,15 +1,15 @@
 # Scripts
 
-Script di avvio e stop del container Docker per Mac, Linux e Windows. **Non ancora implementati** — verranno creati in Part 2 (vedi [../docs/PLAN.md](../docs/PLAN.md)).
+Script di avvio e stop del container Docker per Mac, Linux e Windows. **Stato attuale (Part 2 completata)**: tutti gli script sono presenti e funzionali.
 
-## File previsti
+## File
 
 | Script | Piattaforma | Comportamento |
 |--------|-------------|---------------|
-| `start.sh` | Mac/Linux | `docker build` → `docker run` con volume + env-file → attende healthcheck `healthy` |
+| `start.sh` | Mac/Linux | `docker build` → `docker run` con volume + env-file → attende healthcheck `healthy` (timeout 120s) |
 | `start.ps1` | Windows PowerShell | Stesso comportamento di `start.sh` con sintassi PowerShell |
-| `stop.sh` | Mac/Linux | `docker stop pm-app && docker rm pm-app` |
-| `stop.ps1` | Windows PowerShell | Stesso comportamento di `stop.sh` |
+| `stop.sh` | Mac/Linux | `docker stop pm-app && docker rm pm-app` (idempotente) |
+| `stop.ps1` | Windows PowerShell | Stesso comportamento di `stop.sh` (idempotente) |
 
 ## Convenzioni
 

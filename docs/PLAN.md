@@ -53,42 +53,42 @@ Arricchire il presente documento e creare `frontend/AGENTS.md` che descriva il c
 Infrastruttura: container Docker con volume persistente, backend FastAPI minimo, script di avvio/stop, healthcheck, linting. Il backend serve una pagina "hello world" e una rotta API di esempio.
 
 ### Sotto-step
-- [ ] Creare `backend/pyproject.toml` con:
-  - Dipendenze runtime: `fastapi`, `uvicorn[standard]`, `httpx`, `python-dotenv`
+- [x] Creare `backend/pyproject.toml` con:
+  - Dipendenze runtime: `fastapi`, `uvicorn[standard]`, `httpx`, `python-dotenv`, `itsdangerous` (richiesta da SessionMiddleware, Part 4)
   - Dev dependencies: `pytest`, `ruff`
   - Configurazione `ruff` (line-length 100, target Python 3.12)
-- [ ] Creare `backend/app/main.py`:
+- [x] Creare `backend/app/main.py`:
   - Rotta `GET /api/health` → `{"status": "ok"}`
   - Mount `backend/static/` su `/` con `StaticFiles` (placeholder `index.html` che fa fetch a `/api/health`)
   - CORS abilitato solo se `os.getenv("DEV_MODE") == "1"`, allowed origin `http://localhost:3000`
-- [ ] Creare `backend/static/index.html` placeholder ("hello world" + chiamata `/api/health`)
-- [ ] Creare `data/.gitkeep` (directory per il DB SQLite, fuori dal codice)
-- [ ] Creare `.env.example` nella root con tutte le variabili documentate:
+- [x] Creare `backend/static/index.html` placeholder ("hello world" + chiamata `/api/health`)
+- [x] Creare `data/.gitkeep` (directory per il DB SQLite, fuori dal codice)
+- [x] Creare `.env.example` nella root con tutte le variabili documentate:
   - `OPENROUTER_API_KEY=`
   - `SESSION_SECRET=` (con istruzioni per generarla)
   - `DEV_MODE=0`
-- [ ] Verificare che `.env` sia in `.gitignore`
-- [ ] Creare `Dockerfile` nella root:
+- [x] Verificare che `.env` sia in `.gitignore` (riga 130 esistente)
+- [x] Creare `Dockerfile` nella root:
   - Base image `python:3.12-slim`
   - Installa `uv` con `pip install uv`
-  - Copia `backend/` e installa con `uv sync --frozen`
+  - Copia `backend/pyproject.toml` + `backend/uv.lock` e installa con `uv sync --frozen --no-dev`
   - `EXPOSE 8000`
-  - `HEALTHCHECK --interval=10s --timeout=3s --retries=3 CMD curl -fsS http://localhost:8000/api/health || exit 1`
+  - `HEALTHCHECK` via `python -c urllib.request...` (evita di installare `curl`)
   - `CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]`
-- [ ] Creare `.dockerignore` (`node_modules`, `__pycache__`, `.venv`, `frontend/.next`, `frontend/out`, `data/*.db`, `.env`)
-- [ ] Creare script in `scripts/`:
+- [x] Creare `.dockerignore` (`node_modules`, `__pycache__`, `.venv`, `frontend/.next`, `frontend/out`, `data/*.db`, `.env`)
+- [x] Creare script in `scripts/`:
   - `start.sh` (Mac/Linux) e `start.ps1` (Windows):
     - `docker build -t pm-app .`
     - `docker run -d --name pm-app -p 8000:8000 --env-file .env -v "$(pwd)/data:/app/data" pm-app`
     - Loop di attesa healthcheck (`docker inspect --format '{{.State.Health.Status}}'`) → "healthy"
   - `stop.sh` e `stop.ps1`: `docker stop pm-app && docker rm pm-app`
-- [ ] Aggiornare `backend/AGENTS.md` con descrizione del backend
-- [ ] Aggiornare `scripts/AGENTS.md` con descrizione degli script
+- [x] Aggiornare `backend/AGENTS.md` con descrizione del backend
+- [x] Aggiornare `scripts/AGENTS.md` con descrizione degli script
 
 ### Test
-- [ ] `backend/tests/test_health.py`: `TestClient` → `GET /api/health` ritorna 200 + `{"status": "ok"}`
-- [ ] `ruff check backend/` non rileva problemi
-- [ ] Test manuale: `scripts/start.*` → attendere "healthy" → `http://localhost:8000/` mostra hello world + risultato di `/api/health`
+- [x] `backend/tests/test_health.py`: `TestClient` → `GET /api/health` ritorna 200 + `{"status": "ok"}`
+- [x] `ruff check backend/` non rileva problemi
+- [ ] Test manuale: `scripts/start.*` → attendere "healthy" → `http://localhost:8000/` mostra hello world + risultato di `/api/health` (in attesa: Docker Desktop non in esecuzione sull'host)
 
 ### Criteri di successo
 - `docker build` completa senza errori
