@@ -198,33 +198,36 @@ Definire lo schema, documentarlo, ottenere sign-off.
 Rotte API per leggere e aggiornare la board dell'utente loggato. Inizializzazione automatica del DB.
 
 ### Sotto-step
-- [ ] Aggiungere `sqlalchemy` (sync) alle dipendenze
-- [ ] Creare `backend/app/db.py`:
-  - Engine SQLite verso `os.getenv("DB_PATH", "data/kanban.db")` (path relativo alla working dir del container)
-  - `init_db()`: `CREATE TABLE IF NOT EXISTS` per `users` e `boards`
-  - `seed_default_user()`: se non esiste user `user`, lo crea con board di default (5 colonne vuote come da Part 5)
-  - Chiamare `init_db()` + `seed_default_user()` da FastAPI lifespan
-- [ ] Creare `backend/app/models.py` (SQLAlchemy)
-- [ ] Creare `backend/app/schemas.py` (Pydantic): `Card`, `Column`, `BoardData`
-  - Validator su `BoardData`: ogni `cardId` referenziato nelle colonne deve esistere in `cards`; nessun cardId duplicato; nessun cardId orfano in `cards`
-- [ ] Rotte (tutte protette da `require_auth`):
-  - `GET /api/board` → `BoardData` dell'utente loggato
-  - `PUT /api/board` → riceve `BoardData` completo, valida, salva (replace totale di `data`)
+- [x] Aggiungere `sqlalchemy>=2.0` alle dipendenze runtime (vedi [backend/pyproject.toml](../backend/pyproject.toml))
+- [x] [backend/app/db.py](../backend/app/db.py):
+  - `make_engine()` con `connect_args={"check_same_thread": False}`; `PRAGMA journal_mode=WAL` + `PRAGMA foreign_keys=ON` via event listener
+  - Default DB path = `<repo-root>/data/kanban.db` (override via `DB_PATH`); in container risolve a `/app/data/kanban.db` (mounted volume)
+  - `init_db(engine?)`: `Base.metadata.create_all`
+  - `seed_default_user(session?)`: se non esiste user `user`, lo crea con board di default (5 colonne vuote)
+  - `get_session()` generator per FastAPI Depends, scope per-request
+  - `init_db()` + `seed_default_user()` chiamati da FastAPI lifespan (vedi [backend/app/main.py](../backend/app/main.py))
+- [x] [backend/app/models.py](../backend/app/models.py): SQLAlchemy 2.0 `User`, `Board` (FK CASCADE su user_id, UNIQUE → 1:1, CheckConstraint `json_valid(data)`)
+- [x] [backend/app/schemas.py](../backend/app/schemas.py): Pydantic `Card`, `Column`, `BoardData` (`extra="forbid"`) + `model_validator` che vincola: chiave `cards[k]` == `card.id`, nessun cardId duplicato, nessun orphan in colonna, nessun unreferenced in cards
+- [x] [backend/app/board.py](../backend/app/board.py): rotte protette da `require_auth`
+  - `GET /api/board` → `BoardData`
+  - `PUT /api/board` → valida payload (Pydantic) + verifica che il set di `column.id` sia immutabile vs DB (rename `title` permesso, add/remove colonne **non**), salva via replace di `data`
 
-### Test (pytest)
-- [ ] Fixture `tmp_db`: file SQLite temporaneo per ogni test, init + seed prima di ogni test
-- [ ] `test_init_db`: tabelle create, user seed presente
-- [ ] `test_get_board_unauthenticated`: 401
-- [ ] `test_get_board_authenticated`: dopo login → 200 + struttura iniziale (5 colonne, 0 card)
-- [ ] `test_put_board_persists`: PUT con nuovi dati → GET ritorna i nuovi dati
-- [ ] `test_put_board_orphan_cardid`: PUT con `cardId` in colonna ma non in `cards` → 422
-- [ ] `test_put_board_duplicate_cardid`: stesso `cardId` in due colonne → 422
-- [ ] `test_db_persists_across_restart`: scrivi via PUT, ricrea engine, verifica che i dati siano ancora lì
+### Test (pytest, 9 nuovi in [backend/tests/test_board.py](../backend/tests/test_board.py))
+- [x] Fixture `tmp_engine` + `client` + `auth_client`: SQLite temp con `dependency_overrides[get_session]`
+- [x] `test_init_db_creates_user_and_empty_board`: tabelle create, user seed presente, 5 colonne vuote
+- [x] `test_get_board_unauthenticated`: 401
+- [x] `test_put_board_persists`: PUT con rinomina colonna + add card → GET conferma
+- [x] `test_put_board_orphan_cardid_rejected`: 422
+- [x] `test_put_board_duplicate_cardid_rejected`: 422
+- [x] `test_put_board_unreferenced_card_rejected`: 422
+- [x] `test_put_board_rejects_column_id_change`: 422
+- [x] `test_put_board_rejects_extra_column`: 422
+- [x] `test_db_persists_across_engine_restart`: PUT → dispose engine → riapri sullo stesso file → dati ancora presenti
 
 ### Criteri di successo
-- `pytest` in `backend/` passa al 100%
-- Riavviando il container, lo stato della board persiste (verifica manuale con `docker restart pm-app`)
-- Il DB viene creato automaticamente al primo avvio
+- [x] `pytest backend/` passa al 100% (16/16)
+- [ ] Riavviando il container, lo stato della board persiste (verifica manuale con `docker restart pm-app`)
+- [x] Il DB viene creato automaticamente al primo avvio (lifespan startup)
 
 ---
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -9,10 +10,20 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
 from app.auth import router as auth_router
+from app.board import router as board_router
+from app.db import init_db, seed_default_user
 
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 
-app = FastAPI(title="PM Backend", version="0.1.0")
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    init_db()
+    seed_default_user()
+    yield
+
+
+app = FastAPI(title="PM Backend", version="0.1.0", lifespan=lifespan)
 
 SESSION_SECRET = os.getenv("SESSION_SECRET", "dev-insecure-secret-change-me")
 DEV_MODE = os.getenv("DEV_MODE") == "1"
@@ -45,6 +56,7 @@ def health() -> dict[str, str]:
 
 
 app.include_router(auth_router)
+app.include_router(board_router)
 
 
 if STATIC_DIR.exists():

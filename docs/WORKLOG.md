@@ -8,6 +8,40 @@ Convenzioni:
 
 ---
 
+## 2026-05-16 — Part 6: Backend API per il Kanban (DB + endpoints)
+
+**Commit:** (vedi `git log`)
+
+**Fatto:**
+- Aggiunta dipendenza `sqlalchemy>=2.0` (vedi `backend/pyproject.toml` + `uv.lock`)
+- [backend/app/db.py](../backend/app/db.py): engine SQLite (WAL + foreign_keys ON via listener), default path `<repo-root>/data/kanban.db` con override `DB_PATH`, `init_db`, `seed_default_user`, `get_session` generator
+- [backend/app/models.py](../backend/app/models.py): SQLAlchemy 2.0 `User`/`Board`. FK CASCADE, `user_id UNIQUE` (1:1), `CheckConstraint("json_valid(data)")`
+- [backend/app/schemas.py](../backend/app/schemas.py): Pydantic `Card`/`Column`/`BoardData` con validator (no orphan/duplicate/unreferenced, key==id)
+- [backend/app/board.py](../backend/app/board.py): `GET/PUT /api/board` con `require_auth`; PUT enforce immutabilità del set di `column.id` (rename permesso, add/remove no)
+- [backend/app/main.py](../backend/app/main.py): lifespan async che chiama `init_db()` + `seed_default_user()` allo startup; include `board_router`
+- [backend/tests/test_board.py](../backend/tests/test_board.py): 9 test con fixture `tmp_engine` + `dependency_overrides`. Coperti: init+seed, auth, put/get persistenza, validator semantici, immutabilità colonne, persistenza cross-restart
+- Pytest totale: 16/16. Ruff clean.
+
+**Decisioni applicative:**
+- `seed_default_user` resta idempotente: se l'utente esiste già non fa nulla. La board di default è la `empty_board()` di `schemas.py` (5 colonne vuote, nessuna card)
+- DB path computato come absolute path da `__file__` per funzionare sia in dev che in container senza configurazione
+
+**In sospeso:**
+- Test manuale: `docker restart pm-app` conferma persistenza della board sul volume host (richiede Docker Desktop). Il volume era già configurato in Part 2
+
+---
+
+## 2026-05-16 — Part 5: Schema DB (DATABASE.md)
+
+**Commit:** `4ee1f7e`
+
+**Fatto:**
+- [docs/DATABASE.md](DATABASE.md) con DDL `users` + `boards`, razionale "JSON in colonna" vs normalizzato, strategia persistenza Docker (volume `data/`), seed iniziale (5 colonne vuote), decisione "chat AI history lato client", esempio JSON
+- Vincoli semantici documentati: no orphan/duplicate/unreferenced cardId, colonne immutabili (rename only)
+- Approvato esplicitamente dall'utente prima di Part 6
+
+---
+
 ## 2026-05-16 — Verifica manuale end-to-end Parts 2-4 (container Docker)
 
 **Eseguita su Docker Desktop / Windows 11. Risultato: tutto ok.**
