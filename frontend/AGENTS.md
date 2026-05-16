@@ -56,10 +56,10 @@ frontend/
 │   ├── lib/
 │   │   ├── kanban.ts                # Tipi, dati iniziali, logica moveCard, createId
 │   │   ├── kanban.test.ts           # Test Vitest della logica moveCard
-│   │   └── api.ts                   # apiFetch + login/logout/getMe (Part 4); base URL via NEXT_PUBLIC_API_BASE
+│   │   └── api.ts                   # apiFetch + login/logout/getMe/getBoard/updateBoard (Part 4 + 7); base URL via NEXT_PUBLIC_API_BASE
 │   └── test/setup.ts                # Setup Vitest (carica jest-dom)
 ├── tests/
-│   ├── kanban.spec.ts               # Playwright E2E (load, add card, drag) — fa login in beforeEach
+│   ├── kanban.spec.ts               # Playwright E2E (load, add card + reload persistence) — fa login in beforeEach
 │   ├── auth.spec.ts                 # Playwright E2E del flusso auth (Part 4)
 │   └── helpers.ts                   # loginAsTestUser per i test E2E
 ├── public/                          # Asset statici Next.js
@@ -72,9 +72,9 @@ frontend/
 └── package.json
 ```
 
-## Modello dati (in-memory)
+## Modello dati
 
-Definito in [src/lib/kanban.ts](src/lib/kanban.ts):
+Definito in [src/lib/kanban.ts](src/lib/kanban.ts) e identico alla shape Pydantic backend ([backend/app/schemas.py](../backend/app/schemas.py)):
 
 ```ts
 type Card   = { id: string; title: string; details: string };
@@ -86,23 +86,25 @@ type BoardData = {
 ```
 
 - I `cardIds` nelle colonne sono **riferimenti** alle card in `cards`. Le card sono memorizzate in una mappa per lookup O(1) e per evitare duplicazione.
-- `initialData` contiene 5 colonne demo (Backlog, Discovery, In Progress, Review, Done) con card di esempio.
+- `initialData` (5 colonne demo + card di esempio) **non e' piu' usato in produzione** dopo Part 7 (la board reale viene dal backend, seedata vuota). Resta in `kanban.ts` come riferimento e per fixtures di test.
 - `moveCard(columns, activeId, overId)` gestisce sia il riordino dentro la stessa colonna sia lo spostamento tra colonne; accetta sia un `cardId` sia un `columnId` come `overId` (drop su area vuota → append in coda).
 - `createId(prefix)` genera ID univoci combinando random base36 + timestamp.
 
 ## Componenti
 
 ### `KanbanBoard` ([src/components/KanbanBoard.tsx](src/components/KanbanBoard.tsx))
-- Component client (`"use client"`), unico owner dello state del board (`useState<BoardData>(initialData)`)
-- Configura `DndContext` di @dnd-kit con `PointerSensor` (attivazione a 6px di distanza) e `closestCorners`
+- Component client (`"use client"`), owner dello state (`useState<BoardData | null>`). Carica via `getBoard()` al mount; mostra "Loading board..." finche' la risposta arriva (Part 7)
+- Configura `DndContext` di @dnd-kit con `PointerSensor` (attivazione a 6px) e `closestCorners`
 - Gestisce `DragOverlay` per il feedback visivo durante il drag (renderizza `KanbanCardPreview`)
-- Handler: `handleDragStart`, `handleDragEnd`, `handleRenameColumn`, `handleAddCard`, `handleDeleteCard`
-- Layout: header con titolo "Kanban Studio" + griglia 5 colonne (`lg:grid-cols-5`)
+- Handler: `handleDragStart`, `handleDragEnd`, `handleRenameColumn` (debounced 500ms), `handleAddCard`, `handleDeleteCard`
+- **Optimistic update + rollback**: ogni mutazione applica il next state subito e chiama `updateBoard(next)`. Su errore, fa rollback a `lastSavedRef.current` (ultimo state confermato dal server) e mostra banner `role="alert"`
+- **Debounce rename**: state immediato + `setTimeout(persist, 500ms)`, cosi' un keystroke per ogni lettera = una sola PUT. Una mutazione non-rename (add/delete/drag) flusha il timer pendente per evitare race
+- Layout: header con titolo "Kanban Studio" + griglia 5 colonne; banner `saveError` sotto l'header se l'ultima PUT e' fallita
 
 ### `KanbanColumn` ([src/components/KanbanColumn.tsx](src/components/KanbanColumn.tsx))
 - `useDroppable({ id: column.id })` per accettare drop sulla colonna
 - `SortableContext` con `verticalListSortingStrategy` per il riordino interno
-- Titolo modificabile inline tramite `<input>` (chiama `onRename` ad ogni keystroke — sarà da debounceare quando il backend salverà su ogni cambio, vedi PLAN Part 7)
+- Titolo modificabile inline tramite `<input>` (chiama `onRename` ad ogni keystroke; il debounce vive in `KanbanBoard`)
 - Mostra "Drop a card here" come empty state
 - Include `NewCardForm` in fondo
 - `data-testid="column-{id}"` per i test
@@ -161,6 +163,6 @@ Font: `--font-display` (Space Grotesk, classe `.font-display`) per titoli; `--fo
 
 In ordine di esecuzione (vedi [../docs/PLAN.md](../docs/PLAN.md)):
 
-1. DB SQLite + endpoint board (Part 5-6)
-2. Client API esteso (`getBoard`, `updateBoard`) e KanbanBoard collegato al backend (Part 7)
-3. Sidebar di chat AI (Part 10)
+1. Backend AI (Part 8-9)
+2. Sidebar di chat AI lato frontend (Part 10)
+V

@@ -8,6 +8,25 @@ Convenzioni:
 
 ---
 
+## 2026-05-16 — Part 7: Frontend collegato al backend
+
+**Commit:** (vedi `git log`)
+
+**Fatto:**
+- [frontend/src/lib/api.ts](../frontend/src/lib/api.ts) esteso con `getBoard()` e `updateBoard(data)`. Mantiene `credentials: "include"` via `apiFetch`
+- [frontend/src/components/KanbanBoard.tsx](../frontend/src/components/KanbanBoard.tsx) riscritto: state `BoardData | null`, fetch al mount, optimistic update con rollback (`lastSavedRef`) su errore, debounce 500ms sul rename. Banner di errore `role="alert"` quando una PUT fallisce. Mutazioni non-rename flushano il timer pendente prima di applicare la nuova mutazione (per evitare race tra rename in pending e altre mutazioni)
+- [frontend/src/components/KanbanBoard.test.tsx](../frontend/src/components/KanbanBoard.test.tsx) riscritto con `vi.mock("@/lib/api")` (factory inline per `ApiError`). 5 test: loading -> 5 colonne, debounce rename, add card optimistic, rollback su errore, banner load error
+- Decisione: niente `vi.useFakeTimers()` per il test del debounce (causava timeout sui test successivi). Uso `waitFor` con timeout 1500ms per aspettare il debounce reale
+- [frontend/tests/kanban.spec.ts](../frontend/tests/kanban.spec.ts): rimosso il test "moves a card between columns" (dipendeva da `card-card-1` demo non piu' esistente). Aggiunto "adds a card and persists it across page reload" come flusso critico (login -> add -> reload -> visibile -> cleanup)
+- [frontend/AGENTS.md](../frontend/AGENTS.md) aggiornato: nuova architettura client/server, sezione optimistic update + rollback + debounce, `initialData` marcato come non piu' usato in produzione
+- Test totali: Vitest 11/11, backend pytest 16/16, Next.js build ok (3 route: /, /login, /_not-found)
+
+**In sospeso:**
+- Verifica manuale: `docker restart pm-app` -> rilancia il container, login, vedi la card persistita (richiede Docker Desktop)
+- Esecuzione E2E Playwright completa (richiede `npx playwright install` per i browser)
+
+---
+
 ## 2026-05-16 — Part 6: Backend API per il Kanban (DB + endpoints)
 
 **Commit:** (vedi `git log`)

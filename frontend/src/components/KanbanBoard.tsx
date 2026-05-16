@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -13,15 +13,45 @@ import {
 } from "@dnd-kit/core";
 import { KanbanColumn } from "@/components/KanbanColumn";
 import { KanbanCardPreview } from "@/components/KanbanCardPreview";
-import { createId, initialData, moveCard, type BoardData } from "@/lib/kanban";
+import { createId, moveCard, type BoardData } from "@/lib/kanban";
+import { ApiError, getBoard, updateBoard } from "@/lib/api";
 
 type KanbanBoardProps = {
   onLogout?: () => void;
 };
 
+const RENAME_DEBOUNCE_MS = 500;
+
 export const KanbanBoard = ({ onLogout }: KanbanBoardProps = {}) => {
-  const [board, setBoard] = useState<BoardData>(() => initialData);
+  const [board, setBoard] = useState<BoardData | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [activeCardId, setActiveCardId] = useState<string | null>(null);
+  const lastSavedRef = useRef<BoardData | null>(null);
+  const renameTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingDebouncedRef = useRef<BoardData | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    getBoard()
+      .then((data) => {
+        if (cancelled) return;
+        setBoard(data);
+        lastSavedRef.current = data;
+      })
+      .catch(() => {
+        if (!cancelled) setLoadError("Couldn't load the board. Try refreshing.");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (renameTimerRef.current) clearTimeout(renameTimerRef.current);
+    };
+  }, []);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -29,7 +59,55 @@ export const KanbanBoard = ({ onLogout }: KanbanBoardProps = {}) => {
     })
   );
 
-  const cardsById = useMemo(() => board.cards, [board.cards]);
+  const cardsById = useMemo(() => board?.cards ?? {}, [board]);
+
+  const persist = (next: BoardData): void => {
+    updateBoard(next)
+      .then(() => {
+        lastSavedRef.current = next;
+        setSaveError(null);
+      })
+      .catch((err) => {
+        if (lastSavedRef.current) {
+          setBoard(lastSavedRef.current);
+        }
+        setSaveError(
+          err instanceof ApiError ? err.message : "Couldn't save changes."
+        );
+      });
+  };
+
+  const mutate = (mutator: (prev: BoardData) => BoardData) => {
+    setBoard((prev) => {
+      if (!prev) return prev;
+      // Flush any pending debounced rename before applying a new mutation,
+      // so the rename can't overwrite a later save.
+      if (renameTimerRef.current) {
+        clearTimeout(renameTimerRef.current);
+        renameTimerRef.current = null;
+        pendingDebouncedRef.current = null;
+      }
+      const next = mutator(prev);
+      persist(next);
+      return next;
+    });
+  };
+
+  const mutateDebounced = (mutator: (prev: BoardData) => BoardData) => {
+    setBoard((prev) => {
+      if (!prev) return prev;
+      const next = mutator(prev);
+      pendingDebouncedRef.current = next;
+      if (renameTimerRef.current) clearTimeout(renameTimerRef.current);
+      renameTimerRef.current = setTimeout(() => {
+        const pending = pendingDebouncedRef.current;
+        renameTimerRef.current = null;
+        pendingDebouncedRef.current = null;
+        if (pending) persist(pending);
+      }, RENAME_DEBOUNCE_MS);
+      return next;
+    });
+  };
 
   const handleDragStart = (event: DragStartEvent) => {
     setActiveCardId(event.active.id as string);
@@ -43,14 +121,14 @@ export const KanbanBoard = ({ onLogout }: KanbanBoardProps = {}) => {
       return;
     }
 
-    setBoard((prev) => ({
+    mutate((prev) => ({
       ...prev,
       columns: moveCard(prev.columns, active.id as string, over.id as string),
     }));
   };
 
   const handleRenameColumn = (columnId: string, title: string) => {
-    setBoard((prev) => ({
+    mutateDebounced((prev) => ({
       ...prev,
       columns: prev.columns.map((column) =>
         column.id === columnId ? { ...column, title } : column
@@ -60,7 +138,7 @@ export const KanbanBoard = ({ onLogout }: KanbanBoardProps = {}) => {
 
   const handleAddCard = (columnId: string, title: string, details: string) => {
     const id = createId("card");
-    setBoard((prev) => ({
+    mutate((prev) => ({
       ...prev,
       cards: {
         ...prev.cards,
@@ -75,23 +153,44 @@ export const KanbanBoard = ({ onLogout }: KanbanBoardProps = {}) => {
   };
 
   const handleDeleteCard = (columnId: string, cardId: string) => {
-    setBoard((prev) => {
-      return {
-        ...prev,
-        cards: Object.fromEntries(
-          Object.entries(prev.cards).filter(([id]) => id !== cardId)
-        ),
-        columns: prev.columns.map((column) =>
-          column.id === columnId
-            ? {
-                ...column,
-                cardIds: column.cardIds.filter((id) => id !== cardId),
-              }
-            : column
-        ),
-      };
-    });
+    mutate((prev) => ({
+      ...prev,
+      cards: Object.fromEntries(
+        Object.entries(prev.cards).filter(([id]) => id !== cardId)
+      ),
+      columns: prev.columns.map((column) =>
+        column.id === columnId
+          ? {
+              ...column,
+              cardIds: column.cardIds.filter((id) => id !== cardId),
+            }
+          : column
+      ),
+    }));
   };
+
+  if (loadError) {
+    return (
+      <main className="grid min-h-screen place-items-center px-6">
+        <div
+          role="alert"
+          className="max-w-md rounded-2xl border border-red-200 bg-red-50 px-6 py-5 text-center text-sm text-red-700"
+        >
+          {loadError}
+        </div>
+      </main>
+    );
+  }
+
+  if (!board) {
+    return (
+      <main className="grid min-h-screen place-items-center">
+        <p className="text-sm font-semibold uppercase tracking-[0.35em] text-[var(--gray-text)]">
+          Loading board...
+        </p>
+      </main>
+    );
+  }
 
   const activeCard = activeCardId ? cardsById[activeCardId] : null;
 
@@ -146,6 +245,14 @@ export const KanbanBoard = ({ onLogout }: KanbanBoardProps = {}) => {
               </div>
             ))}
           </div>
+          {saveError ? (
+            <div
+              role="alert"
+              className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+            >
+              {saveError}
+            </div>
+          ) : null}
         </header>
 
         <DndContext

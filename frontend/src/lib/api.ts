@@ -2,6 +2,8 @@
 // `credentials: "include"`. In container mode the frontend is served same-origin so
 // API_BASE is "" (relative paths); in dev mode point NEXT_PUBLIC_API_BASE at the
 // backend (e.g. http://localhost:8000).
+import type { BoardData } from "@/lib/kanban";
+
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "";
 
 export class ApiError extends Error {
@@ -56,4 +58,26 @@ export async function getMe(): Promise<Me | null> {
     throw new ApiError(response.status, "Auth check failed.");
   }
   return (await response.json()) as Me;
+}
+
+export async function getBoard(): Promise<BoardData> {
+  const response = await apiFetch("/api/board");
+  if (!response.ok) {
+    throw new ApiError(response.status, "Failed to load the board.");
+  }
+  return (await response.json()) as BoardData;
+}
+
+export async function updateBoard(data: BoardData): Promise<BoardData> {
+  const response = await apiFetch("/api/board", {
+    method: "PUT",
+    body: JSON.stringify(data),
+  });
+  if (response.status === 422) {
+    throw new ApiError(422, "The board update was rejected by the server.");
+  }
+  if (!response.ok) {
+    throw new ApiError(response.status, "Failed to save the board.");
+  }
+  return (await response.json()) as BoardData;
 }

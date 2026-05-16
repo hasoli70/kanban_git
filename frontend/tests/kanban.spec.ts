@@ -10,34 +10,25 @@ test("loads the kanban board", async ({ page }) => {
   await expect(page.locator('[data-testid^="column-"]')).toHaveCount(5);
 });
 
-test("adds a card to a column", async ({ page }) => {
+test("adds a card and persists it across page reload", async ({ page }) => {
+  const title = `E2E ${Date.now()}`;
   const firstColumn = page.locator('[data-testid^="column-"]').first();
+
+  // Add
   await firstColumn.getByRole("button", { name: /add a card/i }).click();
-  await firstColumn.getByPlaceholder("Card title").fill("Playwright card");
+  await firstColumn.getByPlaceholder("Card title").fill(title);
   await firstColumn.getByPlaceholder("Details").fill("Added via e2e.");
   await firstColumn.getByRole("button", { name: /add card/i }).click();
-  await expect(firstColumn.getByText("Playwright card")).toBeVisible();
-});
+  await expect(firstColumn.getByText(title)).toBeVisible();
 
-test("moves a card between columns", async ({ page }) => {
-  const card = page.getByTestId("card-card-1");
-  const targetColumn = page.getByTestId("column-col-review");
-  const cardBox = await card.boundingBox();
-  const columnBox = await targetColumn.boundingBox();
-  if (!cardBox || !columnBox) {
-    throw new Error("Unable to resolve drag coordinates.");
-  }
+  // Reload -> the card must still be there (persisted to DB via PUT /api/board)
+  await page.reload();
+  const refreshedColumn = page.locator('[data-testid^="column-"]').first();
+  await expect(refreshedColumn.getByText(title)).toBeVisible({ timeout: 10_000 });
 
-  await page.mouse.move(
-    cardBox.x + cardBox.width / 2,
-    cardBox.y + cardBox.height / 2
-  );
-  await page.mouse.down();
-  await page.mouse.move(
-    columnBox.x + columnBox.width / 2,
-    columnBox.y + 120,
-    { steps: 12 }
-  );
-  await page.mouse.up();
-  await expect(targetColumn.getByTestId("card-card-1")).toBeVisible();
+  // Cleanup so re-runs don't accumulate state in the shared dev DB
+  await refreshedColumn
+    .getByRole("button", { name: new RegExp(`delete ${title}`, "i") })
+    .click();
+  await expect(refreshedColumn.getByText(title)).not.toBeVisible();
 });

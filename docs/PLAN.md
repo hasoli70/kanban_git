@@ -236,26 +236,24 @@ Rotte API per leggere e aggiornare la board dell'utente loggato. Inizializzazion
 Frontend usa le API reali invece dello state in-memory. La board è effettivamente persistente.
 
 ### Sotto-step
-- [ ] Creare `frontend/src/lib/api.ts`:
-  - `getBoard()`, `updateBoard(data)` con `fetch(..., { credentials: "include" })`
-  - In dev mode usa `process.env.NEXT_PUBLIC_API_BASE`; in container mode usa path relativi (stessa origin)
-- [ ] Modificare `KanbanBoard.tsx`:
-  - Al mount: `getBoard()` per caricare lo stato iniziale (con loading skeleton/placeholder)
-  - Ad ogni mutazione (drag/drop, add, delete, rename): update ottimistico dello state + chiamata `updateBoard()`
-  - Gestione errore: se l'update fallisce, mostra banner di errore e fai rollback (mantieni il vecchio state)
-  - Debounce di 500ms su `updateBoard()` per il rename colonna (evitare un PUT per ogni keystroke)
-- [ ] Aggiornare `frontend/AGENTS.md` con la nuova architettura client/server
+- [x] Estendere [frontend/src/lib/api.ts](../frontend/src/lib/api.ts): `getBoard()`, `updateBoard(data)`; base URL via `NEXT_PUBLIC_API_BASE` (vuota in container)
+- [x] Riscrivere [frontend/src/components/KanbanBoard.tsx](../frontend/src/components/KanbanBoard.tsx):
+  - State `BoardData | null`, fetch via `getBoard()` al mount, render "Loading board..." finche' non arriva
+  - Optimistic update + rollback verso `lastSavedRef` su errore, con banner `role="alert"`
+  - Debounce 500ms sul rename colonna; mutazioni non-rename flushano il timer pendente
+  - Prop `onLogout` invariata da Part 4
+- [x] Aggiornare [frontend/AGENTS.md](../frontend/AGENTS.md) con la nuova architettura client/server
 
 ### Test
-- [ ] Vitest: aggiornare i test dei componenti che dipendono da fetch — mockare l'API client (`vi.mock("@/lib/api")`)
-- [ ] Backend pytest invariato
-- [ ] Playwright (flusso critico): login → aggiungi card → reload pagina → la card è ancora visibile
+- [x] Vitest: [frontend/src/components/KanbanBoard.test.tsx](../frontend/src/components/KanbanBoard.test.tsx) riscritto con `vi.mock("@/lib/api")`. 5 test: loading -> 5 colonne, debounce rename, add card optimistic, rollback su errore, banner load error. 11/11 totali pass
+- [x] Backend pytest invariato (16/16)
+- [x] Playwright [frontend/tests/kanban.spec.ts](../frontend/tests/kanban.spec.ts) "adds a card and persists it across page reload": add card -> reload -> card ancora visibile -> cleanup (delete)
 
 ### Criteri di successo
-- Tutte le mutazioni (add, delete, move, rename) sono persistite nel DB
-- Reload della pagina ricarica lo stato dal backend
-- Riavvio del container preserva lo stato (grazie al volume di Part 2)
-- I test passano
+- [x] Tutte le mutazioni (add, delete, move, rename) sono persistite nel DB tramite PUT /api/board
+- [x] Reload della pagina ricarica lo stato dal backend
+- [ ] Riavvio del container preserva lo stato (verifica manuale via `docker restart pm-app`)
+- [x] Test unit (Vitest) e backend (pytest) tutti verdi; E2E manda richieste reali al backend FastAPI in DEV_MODE
 
 ---
 
