@@ -135,6 +135,12 @@ ENV/
 env.bak/
 venv.bak/
 
+# Project: SQLite DB files in the data/ volume (data dir is tracked via .gitkeep)
+data/*.db
+data/*.db-shm
+data/*.db-wal
+data/*.db-journal
+
 # Spyder project settings
 .spyderproject
 .spyproject
