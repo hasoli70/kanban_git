@@ -2,6 +2,8 @@
 
 Demo Next.js del Kanban board. Stato attuale: pura UI con state in-memory, nessuna integrazione backend, nessun login, nessuna chat AI. Verrà progressivamente integrato seguendo le parti definite in [../docs/PLAN.md](../docs/PLAN.md).
 
+**Build mode (Part 3)**: `output: "export"` configurato in [next.config.ts](next.config.ts) per generare un sito statico (`frontend/out/`) servito da FastAPI alla root `/`. I font Google sono scaricati a build-time e serviti come asset statici sotto `_next/static/media/` (nessuna dipendenza da Google Fonts a runtime).
+
 ## Stack
 
 - Next.js 16.1.6 (App Router) — vedi [next.config.ts](next.config.ts)
@@ -144,7 +146,6 @@ Font: `--font-display` (Space Grotesk, classe `.font-display`) per titoli; `--fo
 
 In ordine di esecuzione (vedi [../docs/PLAN.md](../docs/PLAN.md)):
 
-1. Build statico (`output: "export"`) per essere servito da FastAPI (Part 3)
-2. Pagina di login + redirect se non autenticato (Part 4)
-3. Client API (`src/lib/api.ts`) che parla col backend invece dello state in-memory (Part 7)
-4. Sidebar di chat AI (Part 10)
+1. Pagina di login + redirect se non autenticato (Part 4)
+2. Client API (`src/lib/api.ts`) che parla col backend invece dello state in-memory (Part 7)
+3. Sidebar di chat AI (Part 10)

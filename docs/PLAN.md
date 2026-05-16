@@ -105,21 +105,19 @@ Infrastruttura: container Docker con volume persistente, backend FastAPI minimo,
 Build statico del frontend Next.js esistente, servito da FastAPI alla root `/`. Frontend continua a usare state in-memory (nessun backend collegato).
 
 ### Sotto-step
-- [ ] **Verifica preliminare** dei limiti di `output: "export"` con Next.js 16:
-  - Configurare `frontend/next.config.ts` con `output: "export"`
-  - Eseguire `npm run build` e ispezionare warning/errori
-  - **Punto di attenzione 1**: `next/font/google` in [frontend/src/app/layout.tsx](../frontend/src/app/layout.tsx#L2) scarica i font a build-time. Se causa problemi, fallback a font locali (file `.woff2` in `public/fonts/`)
-  - **Punto di attenzione 2**: nessuna API route Next, nessun `next/image` con loader remoto, nessun Server Component con fetch a runtime
-  - Se la verifica fallisce, fermarsi e ridiscutere l'approccio con l'utente prima di proseguire
-- [ ] Aggiornare `Dockerfile` in multi-stage:
+- [x] **Verifica preliminare** dei limiti di `output: "export"` con Next.js 16:
+  - `frontend/next.config.ts` configurato con `output: "export"`
+  - `npm run build` → "Generating static pages 4/4" senza warning bloccanti; font Google scaricati a build-time in `out/_next/static/media/` (Next.js li gestisce automaticamente con export)
+  - Nessuna API route Next, nessun `next/image` con loader remoto: confermato
+- [x] Aggiornare `Dockerfile` in multi-stage:
   - Stage 1 `frontend-build`: `node:20-slim`, `npm ci` in `frontend/`, `npm run build` → output in `frontend/out/`
-  - Stage 2 `backend`: come Part 2, più `COPY --from=frontend-build /app/frontend/out /app/static/`
-- [ ] Sostituire il placeholder `backend/static/index.html` con i file generati dal build (gestito dal `COPY` in Dockerfile)
-- [ ] Verificare che le risorse statiche (`_next/static/...`, font, CSS) siano servite correttamente
-- [ ] Mantenere `/api/health` raggiungibile
+  - Stage 2 `backend`: come Part 2, più `COPY --from=frontend-build /app/frontend/out/ ./static/` dentro `WORKDIR /app/backend` (previo `rm -rf static && mkdir static` per scartare il placeholder)
+- [x] Sostituire il placeholder `backend/static/index.html` con i file generati dal build: il placeholder resta nel source tree (utile per dev mode standalone del backend) ma viene cancellato e rimpiazzato dal `COPY` nel Dockerfile
+- [ ] Verificare che le risorse statiche (`_next/static/...`, font, CSS) siano servite correttamente (test manuale via container, in attesa di Docker Desktop)
+- [x] Mantenere `/api/health` raggiungibile (FastAPI matcha le route specifiche prima del mount `/`)
 
 ### Test
-- [ ] Test backend esistente continua a passare
+- [x] Test backend esistente continua a passare (`pytest backend` → 1 passed)
 - [ ] `npm run test:unit` continua a passare invariato (test su componenti, non sull'integrazione)
 - [ ] Aggiornare `playwright.config.ts`: aggiungere variant che testa contro `http://localhost:8000/` quando env var `E2E_TARGET=container` è settata (default: dev su :3000)
 - [ ] Test E2E contro container: `loads the kanban board` passa su `:8000`

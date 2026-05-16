@@ -1,3 +1,14 @@
+# Stage 1: build the Next.js static export
+FROM node:20-slim AS frontend-build
+WORKDIR /app/frontend
+
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci
+
+COPY frontend/ ./
+RUN npm run build
+
+# Stage 2: backend image
 FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -14,6 +25,8 @@ COPY backend/pyproject.toml backend/uv.lock ./
 RUN uv sync --frozen --no-dev
 
 COPY backend/ ./
+RUN rm -rf static && mkdir static
+COPY --from=frontend-build /app/frontend/out/ ./static/
 
 EXPOSE 8000
 
