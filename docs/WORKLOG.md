@@ -8,6 +8,24 @@ Convenzioni:
 
 ---
 
+## 2026-05-16 — Verifica manuale persistenza DB cross-restart
+
+**Eseguita su Docker Desktop / Windows 11. Risultato: tutto ok.**
+
+Procedura:
+- `scripts/start.ps1` -> healthy
+- Login -> board vuota (DB seed) -> aggiunta card "Pewrsist Test / Vediamo se funziona" in Backlog
+- `docker restart pm-app` -> attesa healthy -> reload browser -> la card e' ancora presente
+- `scripts/stop.ps1`
+
+Conferma che:
+- Il volume `./data:/app/data` funziona end-to-end
+- Il PUT /api/board del frontend (Part 7) scrive davvero su disco
+- Il lifespan startup di main.py riapre il DB esistente senza re-seedare
+- Il seed e' idempotente (esiste gia' user `user` -> non riapplica)
+
+---
+
 ## 2026-05-16 — Part 7: Frontend collegato al backend
 
 **Commit:** (vedi `git log`)

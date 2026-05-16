@@ -226,7 +226,7 @@ Rotte API per leggere e aggiornare la board dell'utente loggato. Inizializzazion
 
 ### Criteri di successo
 - [x] `pytest backend/` passa al 100% (16/16)
-- [ ] Riavviando il container, lo stato della board persiste (verifica manuale con `docker restart pm-app`)
+- [x] Riavviando il container, lo stato della board persiste (verifica manuale 2026-05-16: `docker restart pm-app` -> card "Pewrsist Test" ancora presente dopo reload)
 - [x] Il DB viene creato automaticamente al primo avvio (lifespan startup)
 
 ---
@@ -252,7 +252,7 @@ Frontend usa le API reali invece dello state in-memory. La board è effettivamen
 ### Criteri di successo
 - [x] Tutte le mutazioni (add, delete, move, rename) sono persistite nel DB tramite PUT /api/board
 - [x] Reload della pagina ricarica lo stato dal backend
-- [ ] Riavvio del container preserva lo stato (verifica manuale via `docker restart pm-app`)
+- [x] Riavvio del container preserva lo stato (verifica manuale 2026-05-16: docker restart pm-app -> card sopravvissuta)
 - [x] Test unit (Vitest) e backend (pytest) tutti verdi; E2E manda richieste reali al backend FastAPI in DEV_MODE
 
 ---
