@@ -135,39 +135,31 @@ Build statico del frontend Next.js esistente, servito da FastAPI alla root `/`. 
 Login con credenziali hardcoded `user` / `password`. **Decisione MVP**: il check delle credenziali resta hardcoded per sempre (no hashing, no tabella users coinvolta in auth). La tabella `users` esisterà solo per supportare multi-utente futuro e per dare un `user_id` alle board (Part 5-6).
 
 ### Sotto-step
-- [ ] **Backend**:
-  - Configurare `starlette.middleware.sessions.SessionMiddleware`:
-    - `secret_key` da env var `SESSION_SECRET`
-    - `same_site="lax"`, `https_only=False` (true in prod futura), `http_only=True`, `max_age=86400` (1 giorno)
-  - Modulo `backend/app/auth.py`:
-    - Costanti `HARDCODED_USERNAME = "user"`, `HARDCODED_PASSWORD = "password"`
-    - Endpoint `POST /api/auth/login` (body `{username, password}`):
-      - Confronto diretto con le costanti
-      - Se ok: `request.session["user"] = "user"` → 204 No Content
-      - Se ko: 401
-    - Endpoint `POST /api/auth/logout`: `request.session.clear()` → 204
-    - Endpoint `GET /api/auth/me`: se `request.session.get("user")` → 200 `{user: "user"}`, altrimenti 401
-    - Dipendenza FastAPI `require_auth` riutilizzabile
-- [ ] **Frontend**:
-  - Pagina `frontend/src/app/login/page.tsx` con form (username, password, submit) e gestione errori UX
-  - In `frontend/src/app/page.tsx`: al mount, fetch `/api/auth/me`; se 401 → redirect a `/login`
-  - Pulsante "Logout" nell'header del Kanban che chiama `/api/auth/logout` e redirige a `/login`
-  - Tutte le fetch usano `credentials: "include"`
-- [ ] Aggiornare `frontend/AGENTS.md` con la nuova pagina e il flusso auth
+- [x] **Backend**:
+  - `SessionMiddleware` in [backend/app/main.py](../backend/app/main.py): `session_cookie="pm_session"`, `same_site="lax"` (in container) o `none` (DEV_MODE, per fetch cross-origin :3000→:8000), `https_only=False`, `max_age=86400`
+  - Modulo [backend/app/auth.py](../backend/app/auth.py) con costanti `HARDCODED_USERNAME` / `HARDCODED_PASSWORD`, endpoint `/api/auth/login` (204), `/api/auth/logout` (204), `/api/auth/me` (200/401), dipendenza `require_auth`
+- [x] **Frontend**:
+  - [frontend/src/app/login/page.tsx](../frontend/src/app/login/page.tsx) con form e gestione errori UX (banner `role="alert"`)
+  - [frontend/src/app/page.tsx](../frontend/src/app/page.tsx): client component, al mount `getMe()`, redirect `/login` se null
+  - Pulsante "Logout" nell'header di [frontend/src/components/KanbanBoard.tsx](../frontend/src/components/KanbanBoard.tsx) via prop `onLogout`
+  - Tutte le fetch usano `credentials: "include"` via `apiFetch` in [frontend/src/lib/api.ts](../frontend/src/lib/api.ts)
+- [x] Aggiornare `frontend/AGENTS.md` con la nuova pagina, struttura, e flusso auth
 
 ### Test
-- [ ] Backend pytest:
-  - `test_login_success`: credenziali corrette → 204 + cookie di sessione presente
-  - `test_login_failure`: credenziali sbagliate → 401
-  - `test_me_unauthenticated`: 401
-  - `test_me_authenticated`: dopo login → 200 + `{user: "user"}`
-  - `test_logout`: login → logout → `/api/auth/me` → 401
-  - `test_cookie_flags`: ispezione del cookie set dopo login → contiene `HttpOnly` e `SameSite=Lax`
-- [ ] Vitest: test della LoginPage (render, submit, gestione errore credenziali invalide)
-- [ ] Playwright (flusso critico):
+- [x] Backend pytest (7/7 in [backend/tests/test_auth.py](../backend/tests/test_auth.py)):
+  - `test_login_success_sets_session_cookie`
+  - `test_login_failure_returns_401`
+  - `test_me_unauthenticated_returns_401`
+  - `test_me_authenticated_returns_user`
+  - `test_logout_clears_session`
+  - `test_login_cookie_flags` (HttpOnly + SameSite=Lax)
+- [x] Vitest: [frontend/src/app/login/page.test.tsx](../frontend/src/app/login/page.test.tsx) — submit ok, 401, network error (3/3)
+- [x] Playwright (flusso critico) in [frontend/tests/auth.spec.ts](../frontend/tests/auth.spec.ts):
   - Visita `/` senza login → redirect a `/login`
   - Login corretto → board visibile
+  - Login errato → banner errore, resta su `/login`
   - Logout → torno a `/login`
+  - Aggiornato `playwright.config.ts`: spawn parallelo del backend con `DEV_MODE=1` e `NEXT_PUBLIC_API_BASE=http://127.0.0.1:8000` per il dev server
 
 ### Criteri di successo
 - Senza login non si vede il Kanban

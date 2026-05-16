@@ -40,7 +40,10 @@ frontend/
 ├── src/
 │   ├── app/
 │   │   ├── layout.tsx        # RootLayout con font e metadata
-│   │   ├── page.tsx          # Home: renderizza <KanbanBoard />
+│   │   ├── page.tsx          # Home: auth-gate (getMe → redirect /login) + <KanbanBoard onLogout />
+│   │   ├── login/
+│   │   │   ├── page.tsx      # Login form (Part 4)
+│   │   │   └── page.test.tsx # Vitest del form
 │   │   ├── globals.css       # Tailwind + variabili CSS palette
 │   │   └── favicon.ico
 │   ├── components/
@@ -52,9 +55,13 @@ frontend/
 │   │   └── NewCardForm.tsx          # Form inline per aggiungere card
 │   ├── lib/
 │   │   ├── kanban.ts                # Tipi, dati iniziali, logica moveCard, createId
-│   │   └── kanban.test.ts           # Test Vitest della logica moveCard
+│   │   ├── kanban.test.ts           # Test Vitest della logica moveCard
+│   │   └── api.ts                   # apiFetch + login/logout/getMe (Part 4); base URL via NEXT_PUBLIC_API_BASE
 │   └── test/setup.ts                # Setup Vitest (carica jest-dom)
-├── tests/kanban.spec.ts             # Playwright E2E (load, add card, drag)
+├── tests/
+│   ├── kanban.spec.ts               # Playwright E2E (load, add card, drag) — fa login in beforeEach
+│   ├── auth.spec.ts                 # Playwright E2E del flusso auth (Part 4)
+│   └── helpers.ts                   # loginAsTestUser per i test E2E
 ├── public/                          # Asset statici Next.js
 ├── next.config.ts
 ├── playwright.config.ts
@@ -142,10 +149,18 @@ Font: `--font-display` (Space Grotesk, classe `.font-display`) per titoli; `--fo
 - Stile: Tailwind utility-first, variabili CSS per i colori del brand (mai colori hardcoded nei className)
 - Niente emoji nel codice né nei commenti (vedi [../AGENTS.md](../AGENTS.md))
 
+## Auth flow (Part 4)
+
+- `src/app/page.tsx` (client) chiama `getMe()` al mount: se 401 → `router.replace("/login")`, altrimenti renderizza `<KanbanBoard onLogout={...} />`. Mostra "Loading..." durante la verifica.
+- `src/app/login/page.tsx` invia username/password a `POST /api/auth/login`; mostra `<p role="alert">` con il messaggio dell'`ApiError` (401 → "Invalid username or password."). Su successo `router.replace("/")`.
+- Logout: il button nell'header del Kanban chiama `logout()` (`POST /api/auth/logout`) e fa `router.replace("/login")`.
+- Tutte le fetch usano `credentials: "include"` via `apiFetch` in [src/lib/api.ts](src/lib/api.ts).
+- Per il flow dev (Next.js :3000 + FastAPI :8000), `NEXT_PUBLIC_API_BASE=http://127.0.0.1:8000` è impostato dal `playwright.config.ts` per i test E2E. Per sviluppo locale settarla in `frontend/.env.local`.
+
 ## Cosa manca (rispetto al PLAN)
 
 In ordine di esecuzione (vedi [../docs/PLAN.md](../docs/PLAN.md)):
 
-1. Pagina di login + redirect se non autenticato (Part 4)
-2. Client API (`src/lib/api.ts`) che parla col backend invece dello state in-memory (Part 7)
+1. DB SQLite + endpoint board (Part 5-6)
+2. Client API esteso (`getBoard`, `updateBoard`) e KanbanBoard collegato al backend (Part 7)
 3. Sidebar di chat AI (Part 10)
