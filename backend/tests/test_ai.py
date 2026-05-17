@@ -142,6 +142,33 @@ def test_call_openrouter_upstream_4xx_raises_aierror(monkeypatch: pytest.MonkeyP
         asyncio.run(ai.call_openrouter([{"role": "user", "content": "hi"}]))
 
 
+def test_call_openrouter_null_content_raises_aierror(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key-not-real")
+
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "choices": [{"message": {"content": None}}],
+                "usage": {"prompt_tokens": 1, "completion_tokens": 0},
+            },
+        )
+
+    transport = httpx.MockTransport(handler)
+    real_async_client = httpx.AsyncClient
+
+    def patched_async_client(*args: Any, **kwargs: Any) -> httpx.AsyncClient:
+        kwargs["transport"] = transport
+        return real_async_client(*args, **kwargs)
+
+    monkeypatch.setattr(ai.httpx, "AsyncClient", patched_async_client)
+
+    import asyncio
+
+    with pytest.raises(ai.AIError, match="empty response"):
+        asyncio.run(ai.call_openrouter([{"role": "user", "content": "hi"}]))
+
+
 @pytest.mark.skipif(
     not os.getenv("OPENROUTER_API_KEY"),
     reason="OPENROUTER_API_KEY not set; skipping live integration test",

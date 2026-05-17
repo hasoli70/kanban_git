@@ -4,15 +4,21 @@ import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
+from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
-from app.ai import router as ai_router
-from app.auth import router as auth_router
-from app.board import router as board_router
-from app.db import init_db, seed_default_user
+# Load .env from the repo root for dev-mode standalone runs. In container the values
+# come from `docker run --env-file`; load_dotenv does not override existing env vars,
+# so this is a no-op there.
+load_dotenv(Path(__file__).resolve().parent.parent.parent / ".env")
+
+from app.ai import router as ai_router  # noqa: E402
+from app.auth import router as auth_router  # noqa: E402
+from app.board import router as board_router  # noqa: E402
+from app.db import init_db, seed_default_user  # noqa: E402
 
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 

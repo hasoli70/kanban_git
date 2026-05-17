@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Offline — Kanban Studio</title>
+    <meta name="theme-color" content="#032147" />
+    <style>
+      :root { color-scheme: light; }
+      html, body { margin: 0; padding: 0; height: 100%; }
+      body {
+        display: flex; align-items: center; justify-content: center;
+        background: #f7f8fb; color: #032147;
+        font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+        padding: 2rem;
+      }
+      .card {
+        max-width: 32rem; text-align: center;
+        background: white; border: 1px solid #e4e7ec; border-radius: 14px;
+        padding: 2rem 2.25rem; box-shadow: 0 10px 30px rgba(3, 33, 71, 0.06);
+      }
+      h1 { margin: 0 0 0.75rem; font-size: 1.5rem; color: #032147; }
+      p { margin: 0 0 1rem; color: #4b5563; line-height: 1.5; }
+      .accent { height: 4px; width: 56px; background: #ecad0a; border-radius: 999px; margin: 0 auto 1.25rem; }
+      button {
+        background: #209dd7; color: white; border: 0; border-radius: 8px;
+        font-size: 0.95rem; padding: 0.6rem 1.1rem; cursor: pointer;
+      }
+      button:hover { background: #1b88ba; }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <div class="accent"></div>
+      <h1>You're offline</h1>
+      <p>Kanban Studio needs a network connection to load your board and talk to the AI assistant.</p>
+      <p>Reconnect and try again.</p>
+      <button type="button" onclick="location.reload()">Retry</button>
+    </div>
+  </body>
+</html>

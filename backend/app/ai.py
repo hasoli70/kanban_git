@@ -76,6 +76,15 @@ async def call_openrouter(
         logger.warning("openrouter malformed response: %s", type(exc).__name__)
         raise AIError("AI provider returned an unexpected response") from exc
 
+    if not isinstance(content, str):
+        # Free-tier OSS models occasionally return content=null (e.g. when the model
+        # is rate-limited or refuses). Treat it as a malformed upstream response.
+        logger.warning(
+            "openrouter response content was not a string (type=%s)",
+            type(content).__name__,
+        )
+        raise AIError("AI provider returned an empty response")
+
     logger.info(
         "openrouter call ok model=%s prompt_tokens=%d completion_tokens=%d",
         OPENROUTER_MODEL,

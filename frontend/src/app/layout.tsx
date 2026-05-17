@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Manrope, Space_Grotesk } from "next/font/google";
+import { ServiceWorkerRegistration } from "@/components/ServiceWorkerRegistration";
 import "./globals.css";
 
 const displayFont = Space_Grotesk({
@@ -41,6 +42,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${displayFont.variable} ${bodyFont.variable}`}>
+        <ServiceWorkerRegistration />
         {children}
       </body>
     </html>

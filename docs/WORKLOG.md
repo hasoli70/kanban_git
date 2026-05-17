@@ -8,6 +8,128 @@ Convenzioni:
 
 ---
 
+## 2026-05-17 — PWA: icone PNG raster per soddisfare Chrome install criteria
+
+**Commit:** (in arrivo)
+
+**Contesto:** dopo l'aggiunta del service worker, in Chrome DevTools -> Application -> Manifest comparivano errori bloccanti:
+- `icon http://localhost:8000/icon.svg failed to load`
+- `icon http://localhost:8000/icon-maskable.svg failed to load`
+- `Most operating systems require square icons. Please include at least one square icon in the array.`
+
+Chrome desktop attuale richiede icone PNG raster con `sizes` esplicito (192x192 e 512x512). Le SVG con `sizes: "any"` non bastano piu'.
+
+**Fatto:**
+- Generate 3 PNG con PowerShell + `System.Drawing` (no nuove dipendenze, no tool esterni):
+  - [frontend/public/icon-192.png](../frontend/public/icon-192.png) — 192x192, purpose `any`
+  - [frontend/public/icon-512.png](../frontend/public/icon-512.png) — 512x512, purpose `any`
+  - [frontend/public/icon-512-maskable.png](../frontend/public/icon-512-maskable.png) — 512x512, purpose `maskable`, safe-area ~80% centrata
+  - Tutte raffigurano: sfondo navy `#032147` + barra giallo accent in alto + 4 colonne kanban (blue/purple/yellow/gray, altezze decrescenti)
+- [frontend/public/manifest.webmanifest](../frontend/public/manifest.webmanifest): array `icons` aggiornato con le 3 PNG + SVG mantenuta come fallback
+- `npm run build` ok; `out/icon-192.png` (1133b), `out/icon-512.png` (4993b), `out/icon-512-maskable.png` (4710b), `out/manifest.webmanifest` (790b)
+
+**Decisione: niente Pillow / niente conversione SVG -> PNG**
+- `System.Drawing` e' built-in su Windows PowerShell (no `pip install`, no node tool)
+- Le PNG ridisegnano l'artwork da zero (rettangoli colorati) invece di rasterizzare la SVG: piu' semplice, niente dipendenze, identico risultato visivo
+- Tradeoff: se cambia il design SVG, vanno rigenerate a mano via script PowerShell. Si potrebbe spostare lo script in `scripts/gen-icons.ps1` quando avra' senso
+
+**In sospeso (verifica mobile/install):**
+- Test PWA install in Chrome desktop (richiede rebuild container + hard reload)
+- Test PWA install su mobile: localhost non e' raggiungibile, serve HTTPS. Due strade documentate in chat:
+  - LAN HTTP (`http://<lan-ip>:8000`): si vede ma non si installa (Chrome mobile richiede HTTPS)
+  - HTTPS tunnel (es. `cloudflared tunnel --url http://localhost:8000`): installabile via menu "Aggiungi a schermata Home"
+
+---
+
+## 2026-05-17 — PWA: service worker + offline fallback
+
+**Commit:** (in arrivo)
+
+**Contesto:** la sessione PWA precedente aveva esplicitamente lasciato il service worker come work item futuro. L'utente ora vuole "che sia una PWA" piena -> aggiungo SW con offline fallback.
+
+**Fatto:**
+- [frontend/public/sw.js](../frontend/public/sw.js): SW custom (no Workbox / next-pwa). Strategia stale-while-revalidate per same-origin GET requests; cache `kanban-v1`; bypass `/api/*` (no cache di dati/sessione); precache di `manifest.webmanifest`, `icon.svg`, `icon-maskable.svg`, `offline.html`; `skipWaiting()` + `clients.claim()` per attivazione immediata
+- [frontend/public/offline.html](../frontend/public/offline.html): pagina statica self-contained (no font/asset esterni), brand-aligned con la palette (navy/giallo), pulsante "Retry" che fa `location.reload()`. Servita per le `navigate` requests quando offline e senza cache
+- [frontend/src/components/ServiceWorkerRegistration.tsx](../frontend/src/components/ServiceWorkerRegistration.tsx): client component che fa `navigator.serviceWorker.register("/sw.js")` al mount. Skippa la registrazione fuori da `https://` se l'host non e' `localhost`/`127.0.0.1` (browser non lo permetterebbero comunque)
+- [frontend/src/app/layout.tsx](../frontend/src/app/layout.tsx): include `<ServiceWorkerRegistration />` accanto a `{children}` nel `<body>`
+- [frontend/AGENTS.md](../frontend/AGENTS.md): sezione PWA aggiornata coi nuovi sorgenti e istruzioni per testare il SW da DevTools
+
+**Verifiche:**
+- `npm run build` ok: `out/sw.js` (1607b), `out/offline.html` (1647b), `out/manifest.webmanifest` (548b), icone presenti
+- `npm run lint` clean, `npm run test:unit` 19/19 invariati
+- Verifica live nel container/browser non eseguita in questa sessione (Docker Desktop non era running)
+
+**Decisioni:**
+- Niente Workbox, niente `next-pwa`: il SW e' ~50 righe, gestibile senza altre dipendenze. Bisogna ricordarsi di bumpare `CACHE_NAME` (es. `kanban-v2`) quando cambia la shape degli asset cached
+- `/api/*` mai cachato: la session cookie e' http-only ma le risposte (board content) NON devono finire in cache disco lato browser. Le richieste passano direttamente a fetch nativo (return early dal handler)
+- Stale-while-revalidate, non network-first: con il static export Next.js gli asset hashati (`_next/static/*`) sono immutabili -> cache illimitata e' safe. Per l'index HTML invece il prossimo deploy aggiorna in background; l'utente vede la versione vecchia per una visita poi quella nuova
+
+**In sospeso:**
+- Verifica install manuale (Chrome -> Install) -> finestra standalone
+- DevTools -> Network -> Offline reload -> deve mostrare `offline.html`
+- Bump di `CACHE_NAME` al prossimo deploy con cambi UI rilevanti
+
+---
+
+## 2026-05-17 — Auto-load .env in dev + null-content guard
+
+**Commit:** (in arrivo)
+
+**Contesto:** durante la verifica live AI in dev standalone era emerso che il backend non chiamava `load_dotenv()`. Funzionava in container (`docker run --env-file`) ma non in dev mode senza pre-export delle env var. Inoltre il free tier `openai/gpt-oss-120b:free` aveva ritornato `content: null` causando un 500 non gestito.
+
+**Fatto:**
+- [backend/app/main.py](../backend/app/main.py): aggiunto `load_dotenv(Path(__file__).resolve().parent.parent.parent / ".env")` a livello modulo, prima degli import di `app.*` (i router leggono env var a import time). `load_dotenv` non sovrascrive le var gia' presenti -> in container e' un no-op
+- [backend/app/ai.py](../backend/app/ai.py): `call_openrouter` ora verifica `isinstance(content, str)` e solleva `AIError("AI provider returned an empty response")` se manca. Mappa al 502 invece che 500. Motivo: il free tier ritorna sporadicamente `choices[0].message.content = null`
+- [backend/tests/test_ai.py](../backend/tests/test_ai.py): nuovo test `test_call_openrouter_null_content_raises_aierror` con `httpx.MockTransport`
+- [README.md](../README.md): aggiunta nota "backend auto-loads root `.env` on startup, no extra step needed"
+- Verifica live ripetuta in shell pulita (env unset): uvicorn parte, `POST /api/ai/chat` -> 200 con `board_updated=true`, card creata e poi rimossa
+
+**Test:** 33/33 backend pass, ruff pulito. La modifica e' non-breaking: produzione (container) si comporta esattamente come prima
+
+---
+
+## 2026-05-17 — Verifica live AI chat (dev mode)
+
+**Eseguita senza Docker (Docker Desktop non era running). Risultato: OK.**
+
+Procedura:
+- Backend avviato standalone (`backend/.venv/Scripts/uvicorn.exe app.main:app --port 8765`) con env loaded da `.env` (`OPENROUTER_API_KEY`, `SESSION_SECRET`, `DEV_MODE=1`)
+- Login `user`/`password` -> cookie sessione
+- `POST /api/ai/chat` con messaggio "Please add a new card titled 'Live Smoke 2026-05-17' ... to the Backlog column."
+- Risposta in **17.1s**: `{board_updated: true, reply: "Added the new card 'Live Smoke 2026-05-17' to the Backlog column.", validation_error: null}`
+- `GET /api/board` post-chat: card `card-live-smoke` presente in `col-backlog`
+- Cleanup via PUT (rimossa la card, board ripristinata a 2 card pre-esistenti)
+
+**Conferma che:**
+- Modello free-tier `openai/gpt-oss-120b:free` rispetta correttamente lo schema strict di structured output di Part 9
+- La validazione semantica (`schemas.py` + check column-id immutabili) accetta l'update proposto dall'AI
+- Il save su DB e' atomico (board count torna a +1 dopo la chiamata, persistito su `data/kanban.db`)
+- Latenza ragionevole (~17s) per il free tier
+
+**Gotcha trovato (dev mode):**
+- Il backend NON chiama `load_dotenv()` in main.py. In container i valori arrivano via `docker run --env-file .env`. In dev standalone, lanciare `uvicorn ...` senza prima esportare le var di `.env` -> `/api/ai/chat` ritorna 500 `"AI provider is not configured"`. Il [README.md](../README.md) dovrebbe esplicitarlo (es. "exporta le var di `.env` prima di lanciare uvicorn, oppure usa `uv run --env-file ../.env ...`"), oppure il backend dovrebbe chiamare `load_dotenv()` all'avvio per uniformare dev/container
+
+**In sospeso:**
+- Verifica end-to-end full nel container (Docker Desktop non attivo durante questa sessione)
+- Verifica install PWA in Chrome
+
+---
+
+## 2026-05-17 — README di setup (chiude la Definition of Done)
+
+**Commit:** (in arrivo)
+
+**Fatto:**
+- [README.md](../README.md): istruzioni minimal per container mode (`scripts/start.*` + `.env`) e dev mode (uvicorn + npm run dev con `DEV_MODE=1` e `NEXT_PUBLIC_API_BASE`), comandi test (pytest + ruff backend, vitest + playwright + eslint frontend), nota PWA, credenziali default `user`/`password`. Link a `docs/PLAN.md` e `docs/DATABASE.md` per i dettagli
+- [docs/PLAN.md](PLAN.md): spuntato l'ultimo item della Definition of Done
+
+**Stato finale MVP:**
+- Tutte le 10 parti del piano completate, Definition of Done al 100% (salvo verifiche live opzionali che richiedono credito OpenRouter)
+- PWA installabile aggiunta out-of-plan
+- 31 test backend (1 skip live) + 19 vitest + playwright auth/kanban/ai-chat (live skip senza chiave)
+
+---
+
 ## 2026-05-17 — PWA: app installabile (out-of-plan)
 
 **Commit:** (vedi `git log`)

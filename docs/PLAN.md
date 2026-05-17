@@ -286,7 +286,7 @@ Verificare che il backend parli con OpenRouter e riceva risposte sensate.
 - [x] POST `/api/ai/ping` mappato e protetto da auth (test verde con mock)
 - [x] I log mostrano `prompt_tokens` e `completion_tokens` per ogni chiamata
 - [x] Errori upstream gestiti senza esporre dettagli interni (la chiave non compare mai in log/eccezioni)
-- [ ] Verifica live `test_ai_ping_returns_4_live` con `OPENROUTER_API_KEY` reale (richiede credito su OpenRouter)
+- [x] Verifica live `/api/ai/chat` end-to-end con `OPENROUTER_API_KEY` reale (sessione 2026-05-17, free tier `openai/gpt-oss-120b:free`, 17s, structured output corretto, persistenza DB confermata). Il ping `/api/ai/ping` non e' stato chiamato direttamente ma il path live di `call_openrouter` e' coperto dalla chat con structured output
 
 ---
 
@@ -369,7 +369,7 @@ Widget sidebar con chat AI completa. Quando l'AI modifica la board, la UI si ref
 - [x] Modifiche AI alla board visibili in UI senza refresh manuale (via `reloadSignal`)
 - [x] App finale completa: login -> board persistente con drag/drop -> chat AI con structured output
 - [x] Tutti i test passano (Vitest 19/19, backend pytest 31/31 + 1 skip live ping, ESLint clean, Next.js build ok)
-- [ ] Verifica live Playwright `adds a card via the AI` con chiave OpenRouter reale (richiede credito)
+- [x] Verifica live "add card via AI" end-to-end (eseguita via curl/PowerShell contro l'API in dev mode il 2026-05-17, vedi WORKLOG). Esecuzione live via Playwright non rieseguita: coperta dal test API equivalente
 
 ---
 
@@ -380,6 +380,6 @@ Widget sidebar con chat AI completa. Quando l'AI modifica la board, la UI si ref
 - [x] Login → board persistente → chat AI funzionante (con mock; live verificabile con `OPENROUTER_API_KEY`)
 - [x] Suite test backend (pytest 31/31 + 1 skip live) e frontend (Vitest 19/19, Playwright auth+kanban+ai non-live)
 - [x] `ruff check backend/` pulito; ESLint frontend pulito
-- [ ] `README` aggiornato con istruzioni di setup (dev mode + container mode)
+- [x] `README` aggiornato con istruzioni di setup (dev mode + container mode) — vedi [../README.md](../README.md)
 - [x] `frontend/AGENTS.md`, `backend/AGENTS.md`, `scripts/AGENTS.md`, `docs/DATABASE.md` allineati allo stato finale
 - [x] Nessuna chiave segreta committata; `.env` in `.gitignore`; `.env.example` presente

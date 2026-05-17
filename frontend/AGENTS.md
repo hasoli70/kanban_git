@@ -178,11 +178,12 @@ L'app e' installabile come PWA su Chrome/Edge (desktop e Android) e Safari iOS. 
 - [public/manifest.webmanifest](public/manifest.webmanifest): name, short_name, start_url, scope `/`, display `standalone`, theme_color `#032147`, background_color `#f7f8fb`, due icone SVG
 - [public/icon.svg](public/icon.svg): icona principale (sfondo navy + tile colorati delle 5 colonne)
 - [public/icon-maskable.svg](public/icon-maskable.svg): variante con safe-area centrata per Android adaptive icons
-- [src/app/layout.tsx](src/app/layout.tsx): `metadata.manifest`, `metadata.appleWebApp`, `metadata.icons`, e `viewport.themeColor`
+- [public/sw.js](public/sw.js): service worker. Strategia stale-while-revalidate per asset same-origin (cache `kanban-v1`); bypass totale per `/api/*` (no cache di dati/sessione); offline fallback su [public/offline.html](public/offline.html) per le richieste di navigazione
+- [public/offline.html](public/offline.html): pagina di fallback servita quando una `navigate` request non e' ne' in cache ne' raggiungibile in rete
+- [src/components/ServiceWorkerRegistration.tsx](src/components/ServiceWorkerRegistration.tsx): client component che chiama `navigator.serviceWorker.register("/sw.js")` al mount. Registrazione skippata se non `https:` e l'host non e' `localhost`/`127.0.0.1` (browser bloccherebbero comunque)
+- [src/app/layout.tsx](src/app/layout.tsx): `metadata.manifest`, `metadata.appleWebApp`, `metadata.icons`, `viewport.themeColor`, e render di `<ServiceWorkerRegistration />` accanto al children
 
-Per installare: aprire http://localhost:8000 in Chrome/Edge -> click sull'icona "Install" nella barra URL (o menu "..." -> "Installa Kanban Studio"). L'app diventa una finestra dedicata con icona su desktop/start menu/dock.
-
-Note: niente service worker per ora -> offline non supportato. La PWA serve principalmente per dare un'esperienza "app" (finestra dedicata, niente barra browser, icona). Aggiungere SW e' un work item futuro se serve offline.
+Per installare: aprire http://localhost:8000 in Chrome/Edge -> click sull'icona "Install" nella barra URL (o menu "..." -> "Installa Kanban Studio"). L'app diventa una finestra dedicata con icona su desktop/start menu/dock. Per testare il SW: DevTools -> Application -> Service workers (assicurarsi che sia "activated and is running"); Network tab -> Offline -> reload mostra `offline.html`.
 
 ## Stato finale MVP
 
