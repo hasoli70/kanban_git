@@ -8,6 +8,29 @@ Convenzioni:
 
 ---
 
+## 2026-05-17 — Part 9: Chat AI con Structured Outputs
+
+**Commit:** (vedi `git log`)
+
+**Fatto:**
+- [backend/app/ai_prompts.py](../backend/app/ai_prompts.py): `SYSTEM_PROMPT` che descrive shape di `BoardData`, vincoli (colonne immutabili tranne il `title`, no orphan/duplicate), e contratto di output `{reply, board_update: null | BoardData}`. `AI_RESPONSE_SCHEMA` (JSON Schema strict) + `RESPONSE_FORMAT` per OpenRouter. Helper `board_context_message(board_json)`
+- [backend/app/ai.py](../backend/app/ai.py): `call_openrouter` esteso con `response_format` opzionale. Aggiunto endpoint `POST /api/ai/chat` con: build messaggi (system / board JSON / history filtrata `user`+`assistant` / user msg), chiamata structured, parsing JSON sicuro, riuso del validator `BoardData` di Part 6, controllo aggiuntivo "lista di column.id identica a quella in DB" (immutabile incluso ordine), persist via `board.data = proposed.model_dump_json()`
+- Risposta `ChatResponse`: `{reply, board_updated, validation_error?}`. Errori upstream -> 502; parsing/validazione fallita -> `board_updated=false` con `validation_error` informativo (DB intatto)
+- [backend/tests/conftest.py](../backend/tests/conftest.py): estratte le fixture `tmp_engine`/`client`/`auth_client` da `test_board.py` per riuso in `test_ai_chat.py`. `test_board.py` ripulito
+- [backend/tests/test_ai_chat.py](../backend/tests/test_ai_chat.py): 8 test (auth, simple question, modify+persist, reject column-id change, reject orphan, invalid JSON, provider 502, message shape + response_format)
+- Pytest totale: 31 passed, 1 skipped (live ping). Ruff clean
+
+**Decisioni applicative:**
+- `AI_RESPONSE_SCHEMA` permissivo lato JSON Schema (solo shape), la validazione semantica (no orphan/duplicate/unreferenced) resta in `BoardData` Pydantic + check "stesso elenco di column.id". Cosi' i messaggi d'errore restano puntuali e non duplichiamo la logica
+- Lista di `column.id` confrontata in ordine (non come set): assicuro che neppure il riordino delle colonne sia possibile via chat AI
+- History filtrata server-side: solo ruoli `user`/`assistant` (no system injection dal client)
+
+**In sospeso:**
+- Verifica live `/api/ai/chat` con chiave OpenRouter reale (deve restituire structured output valido dal modello `openai/gpt-oss-120b`)
+- Part 10: sidebar chat AI nel frontend
+
+---
+
 ## 2026-05-17 — Part 8: Connettività AI base (OpenRouter)
 
 **Commit:** (vedi `git log`)

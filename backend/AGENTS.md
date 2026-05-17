@@ -1,6 +1,6 @@
 # Backend
 
-Backend FastAPI dell'app PM. **Stato attuale (Part 8 completata)**: `/api/health`, auth con SessionMiddleware (`/api/auth/{login,logout,me}`), SQLite via SQLAlchemy con seed automatico al lifespan, endpoint board (`GET`/`PUT /api/board`), ping AI verso OpenRouter (`POST /api/ai/ping`). Structured-output chat AI in Part 9. Vedi [../docs/PLAN.md](../docs/PLAN.md) e [../docs/DATABASE.md](../docs/DATABASE.md).
+Backend FastAPI dell'app PM. **Stato attuale (Part 9 completata)**: `/api/health`, auth con SessionMiddleware (`/api/auth/{login,logout,me}`), SQLite via SQLAlchemy con seed automatico al lifespan, endpoint board (`GET`/`PUT /api/board`), ping AI verso OpenRouter (`POST /api/ai/ping`), chat AI con structured outputs e applicazione automatica delle modifiche alla board (`POST /api/ai/chat`). Vedi [../docs/PLAN.md](../docs/PLAN.md) e [../docs/DATABASE.md](../docs/DATABASE.md).
 
 ## Stack previsto
 
@@ -28,14 +28,16 @@ backend/
 │   ├── models.py          # SQLAlchemy User, Board (Part 6)
 │   ├── schemas.py         # Pydantic Card, Column, BoardData + validator semantici (Part 6)
 │   ├── board.py           # /api/board GET/PUT + check colonne immutabili (Part 6)
-│   ├── ai.py              # client OpenRouter + /api/ai/ping (Part 8)
-│   └── ai_prompts.py      # system prompt + structured output schema (Part 9)
+│   ├── ai.py              # client OpenRouter + /api/ai/ping + /api/ai/chat (Part 8, 9)
+│   └── ai_prompts.py      # system prompt + AI_RESPONSE_SCHEMA per structured outputs (Part 9)
 ├── static/                # placeholder hello-world (Part 2); sostituito dal build Next.js (Part 3)
 └── tests/
+    ├── conftest.py        # fixture tmp_engine / client / auth_client condivise
     ├── test_health.py     # Part 2 — presente
     ├── test_auth.py       # Part 4 — presente
     ├── test_board.py      # Part 6 — presente
-    └── test_ai.py         # Part 8 — presente (8 test: ping auth/ok/502, missing-key, log token, timeout, 4xx, live skip)
+    ├── test_ai.py         # Part 8 — presente (8 test: ping auth/ok/502, missing-key, log token, timeout, 4xx, live skip)
+    └── test_ai_chat.py    # Part 9 — presente (8 test: chat auth/no-update/persist/reject-id/reject-orphan/bad-json/502/message-shape)
 ```
 
 ## Configurazione runtime

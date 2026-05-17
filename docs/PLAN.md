@@ -295,39 +295,40 @@ Verificare che il backend parli con OpenRouter e riceva risposte sensate.
 Endpoint chat AI riceve board corrente + storico + domanda utente; risponde con structured output (reply + opzionale `board_update`).
 
 ### Sotto-step
-- [ ] Schema di Structured Output (Pydantic):
-  ```
-  class AIResponse:
-    reply: str                       # testo per l'utente
-    board_update: BoardData | None   # se presente, la nuova board completa proposta dall'AI
-  ```
-- [ ] **System prompt** (in `backend/app/ai_prompts.py`):
+- [x] Schema di Structured Output (Pydantic + JSON schema per OpenRouter `response_format`):
+  - `ChatResponse` server-side: `reply: str`, `board_updated: bool`, `validation_error: str | None`
+  - `AI_RESPONSE_SCHEMA` in [backend/app/ai_prompts.py](../backend/app/ai_prompts.py): JSON Schema strict con `{reply, board_update: null | BoardData}` (la validazione semantica fine resta lato server)
+- [x] **System prompt** in [backend/app/ai_prompts.py](../backend/app/ai_prompts.py):
   - Descrive struttura di `BoardData`
   - Specifica che `board_update` deve essere `null` se non c'è modifica
   - Permette esplicitamente: aggiungere/eliminare/spostare card, rinominare colonne. **Vincola**: numero e ID delle colonne immutabili (le 5 di partenza)
-- [ ] Endpoint `POST /api/ai/chat`:
-  - Body: `{message: str, history: list[{role, content}]}`
+- [x] Endpoint `POST /api/ai/chat` in [backend/app/ai.py](../backend/app/ai.py):
+  - Body: `{message: str, history: list[{role, content}]}` (history filtrata a `user`/`assistant`)
   - Carica la board corrente dal DB
   - Costruisce messaggi: system prompt + board JSON come messaggio di sistema secondario + history + user message
-  - Chiama OpenRouter con `response_format: {type: "json_schema", json_schema: ...}` per Structured Outputs
+  - Chiama OpenRouter con `response_format: {type: "json_schema", json_schema: AI_RESPONSE_SCHEMA}`
   - **Validazione regole esplicite** prima del save:
-    1. `BoardData` valida (riusa i validator di Part 6)
-    2. Il set di `column.id` deve essere identico a quello attualmente in DB (no colonne aggiunte/rimosse)
-    3. I `column.title` possono cambiare (rinominare è permesso)
-  - Se validazione fallisce → non salva, risponde `{reply, board_updated: false, validation_error: "..."}`
+    1. `BoardData` valida (riusa validator di Part 6 in `app.schemas`)
+    2. Lista di `column.id` deve coincidere esattamente con quella corrente in DB (anche stesso ordine)
+    3. I `column.title` possono cambiare
+  - Se validazione fallisce → non salva, risponde `{reply, board_updated: false, validation_error}`
   - Se ok e `board_update != null` → salva nel DB, risponde `{reply, board_updated: true}`
+  - `AIError` upstream → HTTP 502
 
-### Test (pytest)
-- [ ] `test_chat_simple_question` (mock AI): "Quante card ho in Backlog?" → reply, `board_updated == false`
-- [ ] `test_chat_modify_board` (mock AI ritorna `board_update` valido): salva, GET `/api/board` riflette la modifica, `board_updated == true`
-- [ ] `test_chat_rejects_column_id_change` (mock ritorna `board_update` con un `col.id` cambiato): risposta `board_updated: false` + `validation_error`, DB invariato
-- [ ] `test_chat_rejects_orphan_cardid`: come sopra
-- [ ] `test_chat_unauthenticated`: 401
+### Test (pytest, 8 nuovi in [backend/tests/test_ai_chat.py](../backend/tests/test_ai_chat.py))
+- [x] `test_chat_unauthenticated`: 401
+- [x] `test_chat_simple_question_no_board_update` (mock AI con `board_update: null`): `board_updated == false`, DB invariato
+- [x] `test_chat_modify_board_persists` (mock con `board_update` valido): DB aggiornato, GET conferma
+- [x] `test_chat_rejects_column_id_change`: `board_updated: false` + `validation_error`, DB invariato
+- [x] `test_chat_rejects_orphan_cardid`: idem
+- [x] `test_chat_handles_invalid_json_from_ai`: AI ritorna stringa non-JSON → `validation_error`, DB invariato
+- [x] `test_chat_provider_error_maps_to_502`: `AIError` → 502
+- [x] `test_chat_includes_system_and_board_messages`: verifica ordine messaggi (system / board JSON / history / user) e `response_format`
 
 ### Criteri di successo
-- L'AI risponde a domande sulla board
-- Quando l'AI restituisce un `board_update` valido, il DB viene aggiornato e una successiva GET riflette la modifica
-- Update che violano le regole vengono rifiutati senza corrompere lo stato
+- [x] L'AI risponde a domande sulla board (mock)
+- [x] Quando l'AI restituisce un `board_update` valido, il DB viene aggiornato e una successiva GET riflette la modifica
+- [x] Update che violano le regole vengono rifiutati senza corrompere lo stato
 
 ---
 
