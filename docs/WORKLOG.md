@@ -8,6 +8,29 @@ Convenzioni:
 
 ---
 
+## 2026-05-17 — Part 10: Sidebar AI chat nel frontend (MVP completato)
+
+**Commit:** (vedi `git log`)
+
+**Fatto:**
+- [frontend/src/lib/api.ts](../frontend/src/lib/api.ts): aggiunti `ChatMessage`, `ChatAIResponse`, `chatAI(message, history)`. Mappa 502 a un messaggio user-friendly
+- [frontend/src/components/AIChatSidebar.tsx](../frontend/src/components/AIChatSidebar.tsx): sidebar fissa a destra, controllata da prop `open`. Tre tipi di messaggio (user / assistant / system). State locale per `messages`, `input`, `loading`, `error`. Auto-scroll, auto-focus. Su `board_updated: true` chiama `onBoardUpdated()`; su `validation_error` mostra badge informativo; su `ApiError` banner `role="alert"`. La history mandata al backend è filtrata a soli `user`/`assistant` (i system message locali non escono)
+- [frontend/src/components/KanbanBoard.tsx](../frontend/src/components/KanbanBoard.tsx): nuova prop `reloadSignal?: number` (dipendenza dell'useEffect che chiama `getBoard()`) + prop `onOpenChat` per il button "Chat" nell'header
+- [frontend/src/app/page.tsx](../frontend/src/app/page.tsx): orchestrazione di `chatOpen` e `boardReloadSignal`, renderizza sia `<KanbanBoard>` che `<AIChatSidebar>`
+- [frontend/src/components/AIChatSidebar.test.tsx](../frontend/src/components/AIChatSidebar.test.tsx): 8 test Vitest (mock `chatAI`); copre render condizionale, empty state, append messaggi, `board_updated` -> callback, `validation_error` no-callback, error banner, history del secondo turno, `onClose`
+- [frontend/tests/ai-chat.spec.ts](../frontend/tests/ai-chat.spec.ts): Playwright. Open/close della sidebar non richiede chiave AI; il test "live" `adds a card via the AI` è skippato senza `OPENROUTER_API_KEY`
+- Vitest 19/19, ESLint clean, `next build` ok (3 route invariate: /, /login, /_not-found)
+
+**Decisione di design (deviazione dal PLAN):**
+- Il PLAN Part 10 indicava "**Decisione**: Context, più pulito visto che cresce un secondo consumer". Ho deviato e uso una semplice prop `reloadSignal: number` come bridge fra `AIChatSidebar` e `KanbanBoard`. Motivo: `KanbanBoard` ha logica complessa interna (optimistic update, rollback, debounce, refs); spostarla in Context era un refactor sproporzionato per un singolo consumer extra. La deviazione è documentata sia in PLAN.md che in [frontend/AGENTS.md](../frontend/AGENTS.md). Se in futuro la sidebar dovesse leggere/scrivere direttamente la board client-side (non solo triggerare un refresh), un `BoardContext` diventerebbe la scelta giusta
+
+**In sospeso:**
+- README di setup (dev mode + container mode) — unico item rimasto della Definition of Done complessiva
+- Verifica live `ai-chat.spec.ts` con chiave OpenRouter reale (richiede credito)
+- Verifica manuale end-to-end in container: `scripts/start.ps1`, login, aggiungere una card via chat, vedere lo state aggiornato dopo `docker restart pm-app`
+
+---
+
 ## 2026-05-17 — Part 9: Chat AI con Structured Outputs
 
 **Commit:** (vedi `git log`)

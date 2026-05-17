@@ -18,11 +18,17 @@ import { ApiError, getBoard, updateBoard } from "@/lib/api";
 
 type KanbanBoardProps = {
   onLogout?: () => void;
+  onOpenChat?: () => void;
+  reloadSignal?: number;
 };
 
 const RENAME_DEBOUNCE_MS = 500;
 
-export const KanbanBoard = ({ onLogout }: KanbanBoardProps = {}) => {
+export const KanbanBoard = ({
+  onLogout,
+  onOpenChat,
+  reloadSignal = 0,
+}: KanbanBoardProps = {}) => {
   const [board, setBoard] = useState<BoardData | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -38,6 +44,7 @@ export const KanbanBoard = ({ onLogout }: KanbanBoardProps = {}) => {
         if (cancelled) return;
         setBoard(data);
         lastSavedRef.current = data;
+        setLoadError(null);
       })
       .catch(() => {
         if (!cancelled) setLoadError("Couldn't load the board. Try refreshing.");
@@ -45,7 +52,7 @@ export const KanbanBoard = ({ onLogout }: KanbanBoardProps = {}) => {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [reloadSignal]);
 
   useEffect(() => {
     return () => {
@@ -223,15 +230,26 @@ export const KanbanBoard = ({ onLogout }: KanbanBoardProps = {}) => {
                   One board. Five columns. Zero clutter.
                 </p>
               </div>
-              {onLogout ? (
-                <button
-                  type="button"
-                  onClick={onLogout}
-                  className="rounded-full border border-[var(--stroke)] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.25em] text-[var(--navy-dark)] hover:bg-[var(--surface)]"
-                >
-                  Logout
-                </button>
-              ) : null}
+              <div className="flex gap-2">
+                {onOpenChat ? (
+                  <button
+                    type="button"
+                    onClick={onOpenChat}
+                    className="rounded-full border border-[var(--stroke)] bg-[var(--secondary-purple)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.25em] text-white hover:opacity-90"
+                  >
+                    Chat
+                  </button>
+                ) : null}
+                {onLogout ? (
+                  <button
+                    type="button"
+                    onClick={onLogout}
+                    className="rounded-full border border-[var(--stroke)] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.25em] text-[var(--navy-dark)] hover:bg-[var(--surface)]"
+                  >
+                    Logout
+                  </button>
+                ) : null}
+              </div>
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-4">

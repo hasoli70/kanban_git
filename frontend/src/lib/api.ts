@@ -81,3 +81,28 @@ export async function updateBoard(data: BoardData): Promise<BoardData> {
   }
   return (await response.json()) as BoardData;
 }
+
+export type ChatMessage = { role: "user" | "assistant"; content: string };
+
+export type ChatAIResponse = {
+  reply: string;
+  board_updated: boolean;
+  validation_error: string | null;
+};
+
+export async function chatAI(
+  message: string,
+  history: ChatMessage[],
+): Promise<ChatAIResponse> {
+  const response = await apiFetch("/api/ai/chat", {
+    method: "POST",
+    body: JSON.stringify({ message, history }),
+  });
+  if (response.status === 502) {
+    throw new ApiError(502, "The AI provider is unavailable. Try again later.");
+  }
+  if (!response.ok) {
+    throw new ApiError(response.status, "The AI request failed.");
+  }
+  return (await response.json()) as ChatAIResponse;
+}

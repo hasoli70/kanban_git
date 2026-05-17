@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { AIChatSidebar } from "@/components/AIChatSidebar";
 import { KanbanBoard } from "@/components/KanbanBoard";
 import { getMe, logout } from "@/lib/api";
 
@@ -10,6 +11,8 @@ type AuthStatus = "loading" | "authenticated";
 export default function Home() {
   const router = useRouter();
   const [status, setStatus] = useState<AuthStatus>("loading");
+  const [chatOpen, setChatOpen] = useState(false);
+  const [boardReloadSignal, setBoardReloadSignal] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -48,5 +51,18 @@ export default function Home() {
     );
   }
 
-  return <KanbanBoard onLogout={handleLogout} />;
+  return (
+    <>
+      <KanbanBoard
+        onLogout={handleLogout}
+        onOpenChat={() => setChatOpen(true)}
+        reloadSignal={boardReloadSignal}
+      />
+      <AIChatSidebar
+        open={chatOpen}
+        onClose={() => setChatOpen(false)}
+        onBoardUpdated={() => setBoardReloadSignal((n) => n + 1)}
+      />
+    </>
+  );
 }

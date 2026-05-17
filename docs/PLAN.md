@@ -337,45 +337,49 @@ Endpoint chat AI riceve board corrente + storico + domanda utente; risponde con 
 Widget sidebar con chat AI completa. Quando l'AI modifica la board, la UI si refresha automaticamente.
 
 ### Sotto-step
-- [ ] Creare `frontend/src/components/AIChatSidebar.tsx`:
-  - Sidebar fissa a destra, toggleable (button "Chat" nell'header)
-  - Lista messaggi (user/assistant) styled con palette del progetto
-  - Input + pulsante "Invia"
-  - Stato `history` in state locale (passato al backend ad ogni richiesta)
-  - Indicatore di loading durante la chiamata
-  - Quando la risposta ha `board_updated: true` → invoca callback `onBoardUpdate()` che ricarica via `getBoard()`
-  - Gestione errore chiamata AI (banner)
-  - Empty state ("Chiedimi qualcosa sulla tua board")
-- [ ] Sollevare lo stato della board a un Context (`BoardContext`) condiviso tra `KanbanBoard` e `AIChatSidebar`, oppure passare callback dal parent. **Decisione**: Context, più pulito visto che cresce un secondo consumer
-- [ ] Includere il sidebar in `app/page.tsx` accanto al `KanbanBoard`
-- [ ] La history della chat è persa al refresh della pagina (decisione MVP: vedi Part 5)
+- [x] Creare [frontend/src/components/AIChatSidebar.tsx](../frontend/src/components/AIChatSidebar.tsx):
+  - Sidebar fissa a destra (`fixed right-0 top-0 h-screen max-w-sm`), aperta tramite button "Chat" nell'header di `KanbanBoard`, chiusa via button "Close" nell'header della sidebar
+  - Lista messaggi (`user` bubble blu / `assistant` bubble grigia / `system` badge centrale per conferme e errori di validazione)
+  - Input + pulsante "Send"; auto-focus dell'input all'apertura; auto-scroll a fondo lista
+  - Stato `messages` in state locale (history passata al backend filtrata a `user`/`assistant`)
+  - Indicatore "Thinking..." durante la chiamata
+  - Quando la risposta ha `board_updated: true` → invoca callback `onBoardUpdated()` che il parent traduce in incremento di `reloadSignal` → `KanbanBoard` rifa `getBoard()`
+  - Gestione errore chiamata AI: banner `role="alert"`
+  - Empty state ("Ask me to add a card, move things between columns, or summarise what is in progress.")
+- [x] **Deviazione dalla "Decisione: Context" del piano**: ho mantenuto lo state della board locale a `KanbanBoard` e introdotto solo una prop `reloadSignal: number` su `KanbanBoard` + callback `onBoardUpdated` su `AIChatSidebar`. Motivazione: `KanbanBoard` ha logica complessa interna (optimistic update, rollback, debounce, refs); spostarla su un Context era un refactor sproporzionato per un singolo consumer. La decisione è documentata in [../frontend/AGENTS.md](../frontend/AGENTS.md)
+- [x] Includere `<AIChatSidebar>` in [frontend/src/app/page.tsx](../frontend/src/app/page.tsx) accanto a `<KanbanBoard>`; il parent possiede `chatOpen` e `boardReloadSignal`
+- [x] La history della chat è persa al refresh della pagina (decisione MVP: vedi Part 5)
 
 ### Test
-- [ ] Vitest (mock `/api/ai/chat`):
-  - Il messaggio utente compare nella lista
-  - La risposta AI compare
-  - Quando il mock ritorna `board_updated: true`, viene chiamato `getBoard()`
-  - Quando ritorna errore, compare il banner di errore
-- [ ] Playwright (flusso critico, skip se no API key):
-  - Login → apri sidebar → invia "aggiungi una card 'Test AI' in Backlog"
-  - Verifica che la risposta AI sia visibile in chat
-  - Verifica che la card "Test AI" compaia nella colonna Backlog senza reload manuale
+- [x] Vitest [frontend/src/components/AIChatSidebar.test.tsx](../frontend/src/components/AIChatSidebar.test.tsx) (8 test, mock `chatAI`):
+  - Render nullo se `open=false`
+  - Empty state quando aperta
+  - Il messaggio utente + reply assistant compaiono nella lista
+  - `onBoardUpdated` viene chiamato quando il mock ritorna `board_updated: true` + badge "Board updated."
+  - `validation_error` viene mostrato senza chiamare `onBoardUpdated`
+  - Su `ApiError` compare il banner `role="alert"`
+  - La history di una conversazione successiva viene inviata correttamente al backend
+  - `onClose` viene invocato dal pulsante Close
+- [x] Playwright [frontend/tests/ai-chat.spec.ts](../frontend/tests/ai-chat.spec.ts):
+  - Aprire/chiudere la sidebar (non richiede chiave API)
+  - **Skip se no `OPENROUTER_API_KEY`**: chat live -> "Add a card titled '...' to Backlog" -> attesa di "Board updated." -> verifica che la card compaia in Backlog senza reload + cleanup
 
 ### Criteri di successo
-- Chat AI funzionante senza reload
-- Modifiche AI alla board visibili in UI senza refresh manuale
-- App finale completa: login → board persistente con drag/drop → chat AI con structured output
-- Tutti i test passano (unit, integration, E2E)
+- [x] Chat AI funzionante senza reload (mock confermano flusso completo)
+- [x] Modifiche AI alla board visibili in UI senza refresh manuale (via `reloadSignal`)
+- [x] App finale completa: login -> board persistente con drag/drop -> chat AI con structured output
+- [x] Tutti i test passano (Vitest 19/19, backend pytest 31/31 + 1 skip live ping, ESLint clean, Next.js build ok)
+- [ ] Verifica live Playwright `adds a card via the AI` con chiave OpenRouter reale (richiede credito)
 
 ---
 
 ## Definition of Done complessiva
 
-- [ ] `docker build` + `scripts/start.*` portano up l'app su `http://localhost:8000/`
-- [ ] DB SQLite persiste su volume host, sopravvive a `docker stop`/`docker start`
-- [ ] Login → board persistente → chat AI funzionante
-- [ ] Suite test backend (pytest) e frontend (Vitest + Playwright per flussi critici) tutte verdi
-- [ ] `ruff check backend/` pulito; ESLint frontend pulito
+- [x] `docker build` + `scripts/start.*` portano up l'app su `http://localhost:8000/` (Part 2/3, verificato 2026-05-16)
+- [x] DB SQLite persiste su volume host, sopravvive a `docker stop`/`docker start` (verificato cross-restart 2026-05-16)
+- [x] Login → board persistente → chat AI funzionante (con mock; live verificabile con `OPENROUTER_API_KEY`)
+- [x] Suite test backend (pytest 31/31 + 1 skip live) e frontend (Vitest 19/19, Playwright auth+kanban+ai non-live)
+- [x] `ruff check backend/` pulito; ESLint frontend pulito
 - [ ] `README` aggiornato con istruzioni di setup (dev mode + container mode)
-- [ ] `frontend/AGENTS.md`, `backend/AGENTS.md`, `scripts/AGENTS.md`, `docs/DATABASE.md` allineati allo stato finale
-- [ ] Nessuna chiave segreta committata; `.env` in `.gitignore`; `.env.example` presente
+- [x] `frontend/AGENTS.md`, `backend/AGENTS.md`, `scripts/AGENTS.md`, `docs/DATABASE.md` allineati allo stato finale
+- [x] Nessuna chiave segreta committata; `.env` in `.gitignore`; `.env.example` presente

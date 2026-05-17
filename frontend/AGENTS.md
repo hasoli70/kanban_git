@@ -1,6 +1,6 @@
 # Frontend — Kanban Studio
 
-Demo Next.js del Kanban board. Stato attuale: pura UI con state in-memory, nessuna integrazione backend, nessun login, nessuna chat AI. Verrà progressivamente integrato seguendo le parti definite in [../docs/PLAN.md](../docs/PLAN.md).
+Next.js client del Kanban board. **Stato attuale (Part 10 completata)**: login, board persistente con drag/drop e optimistic update, sidebar di chat AI che può consultare/modificare la board tramite `POST /api/ai/chat`. Vedi [../docs/PLAN.md](../docs/PLAN.md).
 
 **Build mode (Part 3)**: `output: "export"` configurato in [next.config.ts](next.config.ts) per generare un sito statico (`frontend/out/`) servito da FastAPI alla root `/`. I font Google sono scaricati a build-time e serviti come asset statici sotto `_next/static/media/` (nessuna dipendenza da Google Fonts a runtime).
 
@@ -40,7 +40,7 @@ frontend/
 ├── src/
 │   ├── app/
 │   │   ├── layout.tsx        # RootLayout con font e metadata
-│   │   ├── page.tsx          # Home: auth-gate (getMe → redirect /login) + <KanbanBoard onLogout />
+│   │   ├── page.tsx          # Home: auth-gate + <KanbanBoard /> + <AIChatSidebar /> orchestration
 │   │   ├── login/
 │   │   │   ├── page.tsx      # Login form (Part 4)
 │   │   │   └── page.test.tsx # Vitest del form
@@ -52,15 +52,18 @@ frontend/
 │   │   ├── KanbanColumn.tsx         # Singola colonna (droppable)
 │   │   ├── KanbanCard.tsx           # Singola card (sortable)
 │   │   ├── KanbanCardPreview.tsx    # Render in DragOverlay
-│   │   └── NewCardForm.tsx          # Form inline per aggiungere card
+│   │   ├── NewCardForm.tsx          # Form inline per aggiungere card
+│   │   ├── AIChatSidebar.tsx        # Sidebar di chat AI (Part 10)
+│   │   └── AIChatSidebar.test.tsx   # Test Vitest della sidebar
 │   ├── lib/
 │   │   ├── kanban.ts                # Tipi, dati iniziali, logica moveCard, createId
 │   │   ├── kanban.test.ts           # Test Vitest della logica moveCard
-│   │   └── api.ts                   # apiFetch + login/logout/getMe/getBoard/updateBoard (Part 4 + 7); base URL via NEXT_PUBLIC_API_BASE
+│   │   └── api.ts                   # apiFetch + login/logout/getMe/getBoard/updateBoard/chatAI (Part 4 + 7 + 10); base URL via NEXT_PUBLIC_API_BASE
 │   └── test/setup.ts                # Setup Vitest (carica jest-dom)
 ├── tests/
 │   ├── kanban.spec.ts               # Playwright E2E (load, add card + reload persistence) — fa login in beforeEach
 │   ├── auth.spec.ts                 # Playwright E2E del flusso auth (Part 4)
+│   ├── ai-chat.spec.ts              # Playwright E2E della sidebar AI (test "live" skip se no OPENROUTER_API_KEY) (Part 10)
 │   └── helpers.ts                   # loginAsTestUser per i test E2E
 ├── public/                          # Asset statici Next.js
 ├── next.config.ts
@@ -123,6 +126,15 @@ type BoardData = {
 - Validazione minima: `title.trim()` obbligatorio
 - Chiama `onAdd(title, details)` su submit, poi resetta lo state
 
+### `AIChatSidebar` ([src/components/AIChatSidebar.tsx](src/components/AIChatSidebar.tsx))
+- Sidebar fissa a destra (`fixed right-0 top-0 h-screen w-full max-w-sm`), renderizzata solo quando `open` è `true` (controllata dal parent in `app/page.tsx`)
+- State locale: `messages`, `input`, `loading`, `error`. La history della chat è persa al refresh della pagina (decisione MVP)
+- Tre tipi di messaggio renderizzati: `user` (bubble blu a destra), `assistant` (bubble grigia a sinistra), `system` (badge centrale, usato per "Board updated." o "Update rejected: ...")
+- Su `Send`: append user message, chiama `chatAI(message, history)` con la sola conversazione `user`/`assistant` (i messaggi `system` non vanno al backend), append assistant reply. Se `board_updated`, chiama `onBoardUpdated()` -> il parent incrementa `reloadSignal` -> `KanbanBoard` rifa il fetch
+- Su `validation_error`: messaggio `system` informativo, niente refresh
+- Su `ApiError`: banner `role="alert"` sopra la form
+- Auto-scroll alla fine della lista quando arrivano messaggi nuovi; input auto-focus quando la sidebar viene aperta
+
 ## Palette colori
 
 Definita in [src/app/globals.css](src/app/globals.css) come variabili CSS — coerente con [../AGENTS.md](../AGENTS.md):
@@ -147,7 +159,7 @@ Font: `--font-display` (Space Grotesk, classe `.font-display`) per titoli; `--fo
 - Test colocati: `Foo.test.tsx` accanto a `Foo.tsx`
 - Test E2E in `tests/` (esclusi dalla include di Vitest)
 - Tipi condivisi in `src/lib/kanban.ts`
-- Nessun state globale ancora (Context, Redux, Zustand): tutto in `useState` del componente root `KanbanBoard`
+- Nessun state globale (Context, Redux, Zustand): la board vive in `useState` di `KanbanBoard`, la chat in `useState` di `AIChatSidebar`. Il bridge fra i due componenti è un semplice `reloadSignal: number` gestito da `app/page.tsx` — quando l'AI conferma `board_updated: true`, la sidebar chiama `onBoardUpdated()`, il parent incrementa il contatore, l'effect di `KanbanBoard` rifa il fetch (decisione MVP, deviazione minima dal Context previsto nel PLAN per non riscrivere KanbanBoard)
 - Stile: Tailwind utility-first, variabili CSS per i colori del brand (mai colori hardcoded nei className)
 - Niente emoji nel codice né nei commenti (vedi [../AGENTS.md](../AGENTS.md))
 
@@ -159,10 +171,6 @@ Font: `--font-display` (Space Grotesk, classe `.font-display`) per titoli; `--fo
 - Tutte le fetch usano `credentials: "include"` via `apiFetch` in [src/lib/api.ts](src/lib/api.ts).
 - Per il flow dev (Next.js :3000 + FastAPI :8000), `NEXT_PUBLIC_API_BASE=http://127.0.0.1:8000` è impostato dal `playwright.config.ts` per i test E2E. Per sviluppo locale settarla in `frontend/.env.local`.
 
-## Cosa manca (rispetto al PLAN)
+## Stato finale MVP
 
-In ordine di esecuzione (vedi [../docs/PLAN.md](../docs/PLAN.md)):
-
-1. Backend AI (Part 8-9)
-2. Sidebar di chat AI lato frontend (Part 10)
-V
+Tutte le 10 parti di [../docs/PLAN.md](../docs/PLAN.md) sono implementate. Per la verifica end-to-end (login -> board persistente -> chat AI) serve `OPENROUTER_API_KEY` reale; tutto il resto gira anche senza chiave.
