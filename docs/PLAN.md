@@ -262,25 +262,31 @@ Frontend usa le API reali invece dello state in-memory. La board è effettivamen
 Verificare che il backend parli con OpenRouter e riceva risposte sensate.
 
 ### Sotto-step
-- [ ] Creare `backend/app/ai.py` con `async call_openrouter(messages: list[dict]) -> dict`:
+- [x] Creare `backend/app/ai.py` con `async call_openrouter(messages: list[dict]) -> dict`:
   - Endpoint `https://openrouter.ai/api/v1/chat/completions`
   - Header `Authorization: Bearer <OPENROUTER_API_KEY>`, modello `openai/gpt-oss-120b`
   - Timeout esplicito (30s)
   - Ritorna `{"content": str, "prompt_tokens": int, "completion_tokens": int}`
-  - **Log strutturato** (modulo `logging`) di `prompt_tokens` e `completion_tokens` per ogni chiamata (no costi-cieci)
-  - La chiave non finisce mai in log/eccezioni
-- [ ] Endpoint `POST /api/ai/ping` (protetto): chiama l'AI con `"What is 2+2? Reply with just the number."` e ritorna `{reply}`
-- [ ] Gestione errori: timeout / 4xx / 5xx da OpenRouter → 502 Bad Gateway con messaggio generico al client
+  - **Log strutturato** (modulo `logging`) di `prompt_tokens` e `completion_tokens` per ogni chiamata (no costi-ciechi)
+  - La chiave non finisce mai in log/eccezioni (`AIError` con messaggi generici)
+- [x] Endpoint `POST /api/ai/ping` (protetto via `require_auth`): chiama l'AI con `"What is 2+2? Reply with just the number."` e ritorna `{reply}`
+- [x] Gestione errori: timeout / 4xx / 5xx / payload malformato da OpenRouter → 502 Bad Gateway con messaggio generico al client
 
-### Test (pytest)
-- [ ] `test_ai_ping_returns_4`: integration test "live" — skippato se `OPENROUTER_API_KEY` non è settata (`@pytest.mark.skipif(not os.getenv("OPENROUTER_API_KEY"))`). Verifica che la risposta contenga `"4"`
-- [ ] `test_ai_ping_unauthenticated`: 401
-- [ ] `test_ai_logs_token_counts` (con mock di httpx): la chiamata produce una log entry con `prompt_tokens` e `completion_tokens`
+### Test (pytest, 8 nuovi in [backend/tests/test_ai.py](../backend/tests/test_ai.py))
+- [x] `test_ai_ping_returns_4_live`: integration test "live" — skippato se `OPENROUTER_API_KEY` non è settata
+- [x] `test_ai_ping_unauthenticated`: 401
+- [x] `test_ai_ping_returns_upstream_content` (monkeypatch `call_openrouter`): 200 + `{reply}`
+- [x] `test_ai_ping_maps_provider_error_to_502`: `AIError` → 502
+- [x] `test_call_openrouter_missing_api_key_raises`: senza env var → `AIError`
+- [x] `test_call_openrouter_logs_token_counts` (httpx `MockTransport`): log con `prompt_tokens=42 completion_tokens=7`, chiave assente dal log
+- [x] `test_call_openrouter_timeout_raises_aierror`: `httpx.TimeoutException` → `AIError`, chiave assente
+- [x] `test_call_openrouter_upstream_4xx_raises_aierror`: 429 → `AIError`
 
 ### Criteri di successo
-- POST `/api/ai/ping` ritorna risposta contenente "4"
-- I log mostrano l'uso di token per ogni chiamata
-- Errori upstream gestiti senza esporre dettagli interni
+- [x] POST `/api/ai/ping` mappato e protetto da auth (test verde con mock)
+- [x] I log mostrano `prompt_tokens` e `completion_tokens` per ogni chiamata
+- [x] Errori upstream gestiti senza esporre dettagli interni (la chiave non compare mai in log/eccezioni)
+- [ ] Verifica live `test_ai_ping_returns_4_live` con `OPENROUTER_API_KEY` reale (richiede credito su OpenRouter)
 
 ---
 

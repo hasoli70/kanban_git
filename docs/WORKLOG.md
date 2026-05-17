@@ -8,6 +8,28 @@ Convenzioni:
 
 ---
 
+## 2026-05-17 — Part 8: Connettività AI base (OpenRouter)
+
+**Commit:** (vedi `git log`)
+
+**Fatto:**
+- [backend/app/ai.py](../backend/app/ai.py): `async call_openrouter(messages)` verso `https://openrouter.ai/api/v1/chat/completions`, modello `openai/gpt-oss-120b`, timeout 30s. Ritorna `{content, prompt_tokens, completion_tokens}`. Log info con i token counts; mai logga la chiave. Errori upstream (timeout, transport, 4xx/5xx, payload malformato) vengono catturati e ri-sollevati come `AIError` con messaggio generico
+- [backend/app/ai.py](../backend/app/ai.py) include anche `router` con `POST /api/ai/ping` (protetto da `require_auth`): chiama l'AI con "What is 2+2? Reply with just the number." e mappa `AIError` -> HTTP 502
+- [backend/app/main.py](../backend/app/main.py): include `ai_router`
+- [backend/tests/test_ai.py](../backend/tests/test_ai.py): 8 test (1 skip live). Mock di `call_openrouter` per i test del router; `httpx.MockTransport` per il client OpenRouter (token logging, timeout, 429). Verifica esplicita che la chiave non finisca mai in log/eccezioni
+- Pytest totale: 23 passed, 1 skipped (live). Ruff clean
+
+**Decisioni applicative:**
+- Modulo singolo `ai.py` per client + router (no over-engineering: il router ha una sola route e dipende direttamente dal client). Se Part 9 cresce, splitto in `ai_client.py` + `ai_routes.py`
+- `AIError` come exception applicativa interna; il router la traduce in `HTTPException(502)`. Il client esterno vede solo messaggi generici (`"AI provider timed out"`, `"AI provider returned an error"`, ecc.)
+- Live test marcato `@pytest.mark.skipif` su env var: zero costo in CI/dev locale senza chiave
+
+**In sospeso:**
+- Test live `test_ai_ping_returns_4_live` con `OPENROUTER_API_KEY` reale (richiede credito su OpenRouter)
+- Part 9: structured outputs + endpoint `/api/ai/chat` con contesto board
+
+---
+
 ## 2026-05-16 — Verifica manuale persistenza DB cross-restart
 
 **Eseguita su Docker Desktop / Windows 11. Risultato: tutto ok.**

@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
+from app.ai import router as ai_router
 from app.auth import router as auth_router
 from app.board import router as board_router
 from app.db import init_db, seed_default_user
@@ -57,6 +58,7 @@ def health() -> dict[str, str]:
 
 app.include_router(auth_router)
 app.include_router(board_router)
+app.include_router(ai_router)
 
 
 if STATIC_DIR.exists():
