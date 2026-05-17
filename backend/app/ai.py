@@ -19,7 +19,9 @@ from app.schemas import BoardData
 logger = logging.getLogger("app.ai")
 
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
-OPENROUTER_MODEL = "openai/gpt-oss-120b"
+# Default to OpenRouter's free OSS tier so the app runs without a paid account.
+# Override with a stronger model via the OPENROUTER_MODEL env var if needed.
+OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "openai/gpt-oss-120b:free")
 OPENROUTER_TIMEOUT_SECONDS = 30.0
 
 
