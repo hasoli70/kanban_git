@@ -8,6 +8,32 @@ Convenzioni:
 
 ---
 
+## 2026-05-17 — PWA: app installabile (out-of-plan)
+
+**Commit:** (vedi `git log`)
+
+**Contesto:** verifica live MVP nel container Docker andata bene. L'utente ha chiesto di trasformarla in "app" e ha scelto la via PWA (installabile via browser, niente Electron/Tauri).
+
+**Fatto:**
+- [frontend/public/icon.svg](../frontend/public/icon.svg): icona principale 512x512 (sfondo navy + 4 colonne stilizzate brand)
+- [frontend/public/icon-maskable.svg](../frontend/public/icon-maskable.svg): variante con safe-area centrata per Android adaptive icons
+- [frontend/public/manifest.webmanifest](../frontend/public/manifest.webmanifest): metadati PWA (`name`, `short_name`, `start_url=/`, `scope=/`, `display=standalone`, `theme_color=#032147`, `background_color=#f7f8fb`, icone)
+- [frontend/src/app/layout.tsx](../frontend/src/app/layout.tsx): aggiunti `metadata.manifest`, `metadata.appleWebApp`, `metadata.icons`, e `viewport.themeColor` (separati come da Next.js 14+ guideline)
+- Build: `npm run build` ok, HTML root contiene `<link rel="manifest">`, `<meta name="theme-color">`, `<meta name="mobile-web-app-capable">`, `<link rel="apple-touch-icon">`
+- Container Docker ricostruito (`scripts/stop.ps1 + start.ps1`): `/manifest.webmanifest` e `/icon.svg` rispondono 200
+- [frontend/AGENTS.md](../frontend/AGENTS.md): nuova sezione PWA
+
+**Decisione:**
+- **No PNG** per le icone: SVG con `sizes: "any"` e supporto Chrome/Edge/Safari moderni (dal 2021). Evita l'installazione di Pillow nel venv backend per generare PNG one-shot
+- **No service worker**: Chrome dal v117 non lo richiede piu' per il prompt di install. L'app non funziona offline ma "diventa app" (finestra dedicata, icona, no barra browser). Service worker sara' aggiunto se serve offline reale
+- **Niente next-pwa o altre lib**: setup minimo con metadata API nativa di Next.js + asset statici. Zero dipendenze in piu'
+
+**In sospeso:**
+- Verifica manuale install nel browser: aprire http://localhost:8000 in Chrome -> icona "+" nella barra URL -> Install -> verifica che l'app si apra come finestra standalone
+- Eventuale service worker per offline support (work item futuro)
+
+---
+
 ## 2026-05-17 — Part 10: Sidebar AI chat nel frontend (MVP completato)
 
 **Commit:** (vedi `git log`)

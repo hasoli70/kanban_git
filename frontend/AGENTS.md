@@ -171,6 +171,19 @@ Font: `--font-display` (Space Grotesk, classe `.font-display`) per titoli; `--fo
 - Tutte le fetch usano `credentials: "include"` via `apiFetch` in [src/lib/api.ts](src/lib/api.ts).
 - Per il flow dev (Next.js :3000 + FastAPI :8000), `NEXT_PUBLIC_API_BASE=http://127.0.0.1:8000` è impostato dal `playwright.config.ts` per i test E2E. Per sviluppo locale settarla in `frontend/.env.local`.
 
+## PWA (installable web app)
+
+L'app e' installabile come PWA su Chrome/Edge (desktop e Android) e Safari iOS. Sorgenti:
+
+- [public/manifest.webmanifest](public/manifest.webmanifest): name, short_name, start_url, scope `/`, display `standalone`, theme_color `#032147`, background_color `#f7f8fb`, due icone SVG
+- [public/icon.svg](public/icon.svg): icona principale (sfondo navy + tile colorati delle 5 colonne)
+- [public/icon-maskable.svg](public/icon-maskable.svg): variante con safe-area centrata per Android adaptive icons
+- [src/app/layout.tsx](src/app/layout.tsx): `metadata.manifest`, `metadata.appleWebApp`, `metadata.icons`, e `viewport.themeColor`
+
+Per installare: aprire http://localhost:8000 in Chrome/Edge -> click sull'icona "Install" nella barra URL (o menu "..." -> "Installa Kanban Studio"). L'app diventa una finestra dedicata con icona su desktop/start menu/dock.
+
+Note: niente service worker per ora -> offline non supportato. La PWA serve principalmente per dare un'esperienza "app" (finestra dedicata, niente barra browser, icona). Aggiungere SW e' un work item futuro se serve offline.
+
 ## Stato finale MVP
 
-Tutte le 10 parti di [../docs/PLAN.md](../docs/PLAN.md) sono implementate. Per la verifica end-to-end (login -> board persistente -> chat AI) serve `OPENROUTER_API_KEY` reale; tutto il resto gira anche senza chiave.
+Tutte le 10 parti di [../docs/PLAN.md](../docs/PLAN.md) sono implementate + PWA installabile. Per la verifica end-to-end (login -> board persistente -> chat AI) serve `OPENROUTER_API_KEY` reale; tutto il resto gira anche senza chiave.
